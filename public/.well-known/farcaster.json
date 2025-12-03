@@ -1,1 +1,22 @@
-{}
+{
+  "accountAssociation": {
+    "header": "eyJmaWQiOjIzOTM5NiwidHlwZSI6ImN1c3RvZHkiLCJrZXkiOiIweDRENEU1MjIzODRkNkYxMDkwYkZENEM0NTI3YTdkNTJERmQyMGJDYTMifQ",
+    "payload": "eyJkb21haW4iOiJ3YXJwbGV0d3JhcC52ZXJjZWwuYXBwIn0",
+    "signature": "Hvfp0NSk/pVK4eBOkvgE+Zyv8aM0TuZOCgexeoGJ8YMqtGRE4O9LMqLtIlowfccb+viuQyw7We8A6sOQXsSd1Rw="
+  },
+  "frame": {
+    "version": "1",
+    "name": "Warplet Wrapped",
+    "iconUrl": "https://warpletwrap.vercel.app/icon.jpg",
+    "homeUrl": "https://warpletwrap.vercel.app",
+    "imageUrl": "https://warpletwrap.vercel.app/image.jpg",
+    "buttonTitle": "Check your stats",
+    "splashImageUrl": "https://warpletwrap.vercel.app/splash.jpg",
+    "splashBackgroundColor": "#ffffff",
+    "webhookUrl": "https://api.neynar.com/f/app/054d9c86-0ec5-4c9d-9b1d-fde74f2b341b/event"
+  },
+
+  "baseBuilder": {
+    "ownerAddress": "0x02a9093dEB73E9E524657492429377117C70e097"
+  }
+}
