@@ -591,6 +591,7 @@ export default function WarpletWrapped({
 
       {/* Mint Buttons - Side by Side */}
       <div
+        className="mint-buttons-container"
         style={{
           marginTop: "2rem",
           display: "flex",
@@ -600,6 +601,7 @@ export default function WarpletWrapped({
         }}
       >
         <button
+          className="mint-button"
           onClick={() => setIsMintModalOpen(true)}
           style={{
             padding: "1rem 2rem",
@@ -623,6 +625,7 @@ export default function WarpletWrapped({
           💰 Mint with ETH
         </button>
         <button
+          className="mint-button"
           onClick={() => setIsMintModalOpen(true)}
           style={{
             padding: "1rem 2rem",
