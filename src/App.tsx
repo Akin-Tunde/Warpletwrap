@@ -264,7 +264,6 @@ function App() {
        
         display: "flex",
         flexDirection: "column",
-        
         background: activeTab === "wrapped" ? "#111" : appTheme.bg,
         color: appTheme.textColor,
         fontFamily: "system-ui",
