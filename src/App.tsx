@@ -261,7 +261,7 @@ function App() {
     <div
       style={{
         height: "100dvh", 
-        width: "100vw",
+       
         display: "flex",
         flexDirection: "column",
         
