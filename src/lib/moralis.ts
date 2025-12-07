@@ -14,6 +14,42 @@ if (!MORALIS_API_KEY) {
   console.warn("VITE_MORALIS_API_KEY is not set");
 }
 
+export interface MoralisTokenBalance {
+  token_address: string;
+  name: string;
+  symbol: string;
+  logo: string | null;
+  thumbnail: string | null;
+  decimals: number;
+  balance: string;
+  usd_price: number;
+  usd_value: number;
+  portfolio_percentage: number;
+}
+
+export async function getWalletTokenBalances(
+  address: string,
+  chain = "base"
+): Promise<MoralisTokenBalance[]> {
+  const response = await fetch(
+    `${MORALIS_BASE_URL}/wallets/${address}/tokens?chain=${chain}&exclude_spam=true&exclude_unverified_contracts=true`,
+    {
+      headers: {
+        accept: "application/json",
+        "X-API-Key": MORALIS_API_KEY || "",
+      },
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Moralis API error: ${response.statusText}`);
+  }
+
+  const data = await response.json();
+  return data.result;
+}
+
+
 export async function getWalletProfitability(
   address: string,
   chain = "base"

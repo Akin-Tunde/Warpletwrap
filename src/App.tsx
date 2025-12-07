@@ -1,14 +1,30 @@
 import { sdk } from "@farcaster/miniapp-sdk";
 import { useEffect, useState } from "react";
 import WarpletWrapped from "./components/WarpletWrapped";
+import PortfolioDashboard from "./components/PortfolioDashboard";
+import BottomNav from "./components/BottomNav";
 import { useWarpletData } from "./hooks/useWarpletData";
 
 function App() {
   const [context, setContext] = useState<Awaited<typeof sdk.context> | null>(
     null
   );
+
+  
+  const [activeTab, setActiveTab] = useState("wrapped");
   const [devFid, setDevFid] = useState<string>("");
   const [useDevMode, setUseDevMode] = useState(false);
+
+  
+  const appTheme = {
+    bg: "#181818",
+    cardBg: "#242424",
+    secondaryBg: "rgba(255, 255, 255, 0.05)",
+    textColor: "#ffffff",
+    accentColor: "#fbbf24",
+    positiveColor: "#4ade80",
+    negativeColor: "#fca5a5",
+  };
 
   useEffect(() => {
     const init = async () => {
@@ -24,20 +40,23 @@ function App() {
     useDevMode && devFid
       ? Number.parseInt(devFid)
       : (context?.user?.fid ?? null);
+
   const { user, metrics, isLoading, error } = useWarpletData(fid);
 
-  // Show dev mode input if no FID from context
+  // 1. DEV MODE INPUT SCREEN
   if (!fid && !useDevMode) {
     return (
       <div
         style={{
-          minHeight: "100vh",
+          height: "100dvh",
+          width: "100vw",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           background: "linear-gradient(135deg, #dc2626 0%, #991b1b 100%)",
           color: "white",
           fontFamily: "system-ui",
+          overflow: "hidden",
         }}
       >
         <div
@@ -97,17 +116,20 @@ function App() {
     );
   }
 
+  // 2. LOADING SCREEN
   if (isLoading) {
     return (
       <div
         style={{
-          minHeight: "100vh",
+          height: "100dvh",
+          width: "100vw",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           background: "linear-gradient(135deg, #022c22 0%, #166534 100%)",
           color: "white",
           fontFamily: "system-ui",
+          overflow: "hidden",
         }}
       >
         <div style={{ textAlign: "center" }}>
@@ -122,17 +144,20 @@ function App() {
     );
   }
 
+  // 3. ERROR SCREEN
   if (error) {
     return (
       <div
         style={{
-          minHeight: "100vh",
+          height: "100dvh",
+          width: "100vw",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           background: "linear-gradient(135deg, #7f1d1d 0%, #dc2626 100%)",
           color: "white",
           fontFamily: "system-ui",
+          overflow: "hidden",
         }}
       >
         <div
@@ -175,17 +200,20 @@ function App() {
     );
   }
 
+  // 4. NO DATA SCREEN
   if (!metrics || !user) {
     return (
       <div
         style={{
-          minHeight: "100vh",
+          height: "100dvh",
+          width: "100vw",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           background: "linear-gradient(135deg, #472a91 0%, #855DCD 100%)",
           color: "white",
           fontFamily: "system-ui",
+          overflow: "hidden",
         }}
       >
         <div
@@ -228,11 +256,130 @@ function App() {
     );
   }
 
+  // 5. MAIN APPLICATION
   return (
-    <WarpletWrapped
-      displayName={user.display_name || user.username}
-      metrics={metrics}
-    />
+    <div
+      style={{
+        height: "100dvh", 
+        width: "100vw",
+        display: "flex",
+        flexDirection: "column",
+        
+        background: activeTab === "wrapped" ? "#111" : appTheme.bg,
+        color: appTheme.textColor,
+        fontFamily: "system-ui",
+        overflow: "hidden", 
+      }}
+    >
+      {/* SCROLLABLE CONTENT AREA */}
+      <div
+        style={{
+          flex: 1, 
+          overflowY: "auto", 
+          overflowX: "hidden",
+          paddingBottom: "100px", 
+          scrollbarWidth: "none",
+          msOverflowStyle: "none", 
+        }}
+        className="no-scrollbar"
+      >
+        <style>
+          {`
+            .no-scrollbar::-webkit-scrollbar {
+              display: none;
+            }
+          `}
+        </style>
+
+        {/* VIEW 1: Wrapped Summary */}
+        {activeTab === "wrapped" && (
+          <WarpletWrapped
+            displayName={user.display_name || user.username}
+            metrics={metrics}
+          />
+        )}
+
+        {/* VIEW 2: Assets / Holdings */}
+        {activeTab === "holdings" && (
+          <PortfolioDashboard
+            metrics={metrics}
+            theme={appTheme}
+            view="allocation"
+          />
+        )}
+
+        {/* VIEW 3: Income */}
+        {activeTab === "income" && (
+          <PortfolioDashboard
+            metrics={metrics}
+            theme={appTheme}
+            view="income"
+          />
+        )}
+
+        {/* VIEW 4: Charts / History */}
+        {activeTab === "history" && (
+          <PortfolioDashboard
+            metrics={metrics}
+            theme={appTheme}
+            view="history"
+          />
+        )}
+
+        {/* VIEW 5: Minting */}
+        {activeTab === "mint" && (
+          <div
+            style={{
+              padding: "2rem",
+              textAlign: "center",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              minHeight: "60vh",
+            }}
+          >
+            <div style={{ fontSize: "4rem", marginBottom: "1rem" }}>✨</div>
+            <h2 style={{ color: appTheme.accentColor, marginBottom: "1rem" }}>
+              Mint Your Legacy
+            </h2>
+            <p
+              style={{
+                opacity: 0.8,
+                maxWidth: "300px",
+                lineHeight: "1.6",
+                marginBottom: "2rem",
+              }}
+            >
+              Mint your 2025 Trading Card as a permanent NFT on Base. Store your
+              P/L, Win Rate, and Net Worth on-chain forever.
+            </p>
+            <button
+              onClick={() => setActiveTab("wrapped")}
+              style={{
+                padding: "1rem 2rem",
+                background: appTheme.accentColor,
+                color: "#181818",
+                border: "none",
+                borderRadius: "1rem",
+                fontWeight: "bold",
+                fontSize: "1.1rem",
+                cursor: "pointer",
+              }}
+            >
+              Go to Wrapped Card
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Fixed Bottom Navigation */}
+      <BottomNav
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        theme={appTheme}
+      />
+    </div>
   );
 }
 

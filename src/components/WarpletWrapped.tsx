@@ -1,3 +1,7 @@
+// ================================================
+// FILE: src/components/WarpletWrapped.tsx
+// ================================================
+
 import { useRef, useState } from "react";
 import type { WarpletMetrics } from "../hooks/useWarpletData";
 import { useAccount, useWriteContract, useSendCalls } from "wagmi";
@@ -67,19 +71,27 @@ const themes = {
   },
 };
 
+// Helper to encode string to Base64 safely (handling Unicode/Emojis)
+function utf8_to_b64(str: string) {
+  return window.btoa(
+    encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, function (_, p1) {
+      return String.fromCharCode(parseInt(p1, 16));
+    })
+  );
+}
+
 export default function WarpletWrapped({
   displayName,
   metrics,
 }: WarpletWrappedProps) {
   const [currentTheme, setCurrentTheme] =
     useState<keyof typeof themes>("christmas");
-  // Removed modal-based mint flow
   const [isLoadingMint, setIsLoadingMint] = useState(false);
   const [mintError, setMintError] = useState<string | null>(null);
   const [ipfsHash, setIpfsHash] = useState<string | null>(null);
   const [showShareModal, setShowShareModal] = useState(false);
   const { address } = useAccount();
-  // Balance not needed for direct flow
+
   const { writeContractAsync: mintWithETHWrite } = useWriteContract();
   const { sendCalls } = useSendCalls();
   const theme = themes[currentTheme];
@@ -88,14 +100,42 @@ export default function WarpletWrapped({
   const DONUT_TOKEN_ADDRESS =
     "0xae4a37d554c6d6f3e398546d8566b25052e0169c" as const;
 
-  const [imageUrlForShare, setImageUrlForShare] = useState<string | null>(null);
+  // Generate the dynamic OG URL based on current metrics
+  const generateOgUrl = () => {
+    const data = {
+      username: displayName,
+      pnl: metrics.totalProfitLoss,
+      netWorth: metrics.currentNetWorth,
+      winRate: metrics.winRate,
+      totalTrades: metrics.totalTrades,
+      transfers: metrics.totalTokenTransfers,
+      collections: metrics.totalNFTCollections,
+      bought: metrics.totalBoughtVolume,
+      sold: metrics.totalSoldVolume,
+      biggestWin: metrics.biggestWin
+        ? {
+            symbol: metrics.biggestWin.token.symbol,
+            amount: metrics.biggestWin.profitUsd,
+          }
+        : null,
+      theme: currentTheme,
+      pfp:
+        metrics.warpletNft?.image?.thumbnailUrl ||
+        metrics.warpletNft?.image?.pngUrl ||
+        metrics.warpletNft?.image?.originalUrl,
+    };
+
+    const base64Data = utf8_to_b64(JSON.stringify(data));
+    return `https://warplet.com/api/og?data=${base64Data}`;
+  };
+
   const handleShareOnFarcaster = async () => {
-    if (!imageUrlForShare) return;
     try {
+      const shareUrl = generateOgUrl();
       const text = `Check out my Warplet data for 2025! 🍩\n\nLet's see yours too 👇`;
       await sdk.actions.composeCast({
         text,
-        embeds: [imageUrlForShare, window.location.origin] as [string, string],
+        embeds: [shareUrl, window.location.origin] as [string, string],
       });
       setShowShareModal(false);
     } catch (e) {
@@ -103,22 +143,22 @@ export default function WarpletWrapped({
     }
   };
 
-  const mintWrappedWithETH = async () => {
+   const mintWrappedWithETH = async () => {
     if (!address) return;
     try {
       setIsLoadingMint(true);
       setMintError(null);
-      // Render card to image and upload to IPFS first
       const node = cardRef.current;
       if (!node) throw new Error("Card element not found");
       const blob = await toBlob(node, { cacheBust: true });
       if (!blob) throw new Error("Failed to render card image");
       const imageHash = await uploadBlobToIPFS(blob, "warplet-card.png");
       const imageUrl = getIPFSUrl(imageHash);
-      setImageUrlForShare(imageUrl);
 
       // Upload metadata including image URL
-      const hash = await uploadToIPFS({
+      // We keep the upload call because we need the hash for the contract
+      // but we don't need to save it to React state anymore.
+      await uploadToIPFS({
         username: displayName,
         totalProfitLoss: metrics.totalProfitLoss,
         winRate: metrics.winRate,
@@ -126,7 +166,9 @@ export default function WarpletWrapped({
         imageUrl,
         timestamp: Date.now(),
       });
-      setIpfsHash(hash);
+      
+      // FIX 3: Remove setIpfsHash(hash) call here
+
       const txHash = await mintWithETHWrite({
         address: MintContract.address as `0x${string}`,
         abi: MintContract.abi,
@@ -149,22 +191,21 @@ export default function WarpletWrapped({
     }
   };
 
-  const mintWrappedWithDonut = async () => {
+
+   const mintWrappedWithDonut = async () => {
     if (!address) return;
     try {
       setIsLoadingMint(true);
       setMintError(null);
-      // Render card to image and upload to IPFS first
       const node = cardRef.current;
       if (!node) throw new Error("Card element not found");
       const blob = await toBlob(node, { cacheBust: true });
       if (!blob) throw new Error("Failed to render card image");
       const imageHash = await uploadBlobToIPFS(blob, "warplet-card.png");
       const imageUrl = getIPFSUrl(imageHash);
-      setImageUrlForShare(imageUrl);
 
-      // Upload metadata including image URL
-      const hash = await uploadToIPFS({
+      // We keep the upload call logic
+      await uploadToIPFS({
         username: displayName,
         totalProfitLoss: metrics.totalProfitLoss,
         winRate: metrics.winRate,
@@ -172,7 +213,9 @@ export default function WarpletWrapped({
         imageUrl,
         timestamp: Date.now(),
       });
-      setIpfsHash(hash);
+      
+      // FIX 4: Remove setIpfsHash(hash) call here
+
       const calls = [
         {
           to: DONUT_TOKEN_ADDRESS as `0x${string}`,
@@ -792,6 +835,25 @@ export default function WarpletWrapped({
         </button>
       </div>
 
+      {/* Share Button (Preview without minting) */}
+      <div style={{ marginTop: "1rem" }}>
+        <button
+          onClick={() => setShowShareModal(true)}
+          style={{
+            padding: "0.75rem 1.5rem",
+            background: "rgba(255,255,255,0.1)",
+            border: `1px solid ${theme.accentColor}`,
+            color: theme.accentColor,
+            borderRadius: "1rem",
+            fontSize: "0.9rem",
+            cursor: "pointer",
+            fontWeight: "bold",
+          }}
+        >
+          📲 Share Preview
+        </button>
+      </div>
+
       {mintError && (
         <div
           style={{
@@ -807,7 +869,7 @@ export default function WarpletWrapped({
         </div>
       )}
 
-      {showShareModal && ipfsHash && (
+      {showShareModal && (
         <div
           style={{
             position: "fixed",
@@ -918,7 +980,8 @@ export default function WarpletWrapped({
 
               <button
                 onClick={() => {
-                  const shareText = `Check out my Warplet data for 2025! 🍩\n${imageUrlForShare ?? ""}\n${window.location.origin}`;
+                  const shareUrl = generateOgUrl();
+                  const shareText = `Check out my Warplet data for 2025! 🍩\n${shareUrl}\n${window.location.origin}`;
                   navigator.clipboard.writeText(shareText);
                   alert("Share text copied to clipboard!");
                 }}
