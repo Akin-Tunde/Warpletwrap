@@ -88,7 +88,7 @@ export default function WarpletWrapped({
     useState<keyof typeof themes>("christmas");
   const [isLoadingMint, setIsLoadingMint] = useState(false);
   const [mintError, setMintError] = useState<string | null>(null);
-  const [ipfsHash, setIpfsHash] = useState<string | null>(null);
+  //const [ipfsHash, setIpfsHash] = useState<string | null>(null);
   const [showShareModal, setShowShareModal] = useState(false);
   const { address } = useAccount();
 

@@ -95,7 +95,7 @@ export default function PortfolioDashboard({
                     dataKey="value"
                     stroke="none"
                   >
-                    {allocationData.map((entry, index) => (
+                    {allocationData.map((_, index) => (
                       <Cell
                         key={`cell-${index}`}
                         fill={COLORS[index % COLORS.length]}
