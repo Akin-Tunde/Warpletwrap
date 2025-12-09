@@ -4,13 +4,17 @@ import WarpletWrapped from "./components/WarpletWrapped";
 import PortfolioDashboard from "./components/PortfolioDashboard";
 import BottomNav from "./components/BottomNav";
 import { useWarpletData } from "./hooks/useWarpletData";
+import ChainSelector from "./components/ChainSelector";
+
+
 
 function App() {
   const [context, setContext] = useState<Awaited<typeof sdk.context> | null>(
     null
   );
 
-  
+  const [currentChain, setCurrentChain] = useState("base");
+
   const [activeTab, setActiveTab] = useState("wrapped");
   const [devFid, setDevFid] = useState<string>("");
   const [useDevMode, setUseDevMode] = useState(false);
@@ -270,6 +274,17 @@ function App() {
         overflow: "hidden", 
       }}
     >
+       <div style={{
+        padding: "1rem 1.5rem 0",
+        display: "flex",
+        justifyContent: "flex-end", // Puts selector on the right
+      }}>
+        <ChainSelector 
+          currentChain={currentChain} 
+          onSelect={setCurrentChain} 
+          theme={appTheme} 
+        />
+      </div>
       {/* SCROLLABLE CONTENT AREA */}
       <div
         style={{
@@ -295,6 +310,7 @@ function App() {
           <WarpletWrapped
             displayName={user.display_name || user.username}
             metrics={metrics}
+             chainName={currentChain}
           />
         )}
 
@@ -304,6 +320,7 @@ function App() {
             metrics={metrics}
             theme={appTheme}
             view="allocation"
+            chainName={currentChain}
           />
         )}
 
@@ -313,6 +330,8 @@ function App() {
             metrics={metrics}
             theme={appTheme}
             view="income"
+             chainName={currentChain}
+            displayName={user.display_name || user.username} 
           />
         )}
 

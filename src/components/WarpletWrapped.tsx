@@ -14,6 +14,7 @@ import { MintContract } from "../lib/Contracts";
 interface WarpletWrappedProps {
   displayName: string;
   metrics: WarpletMetrics;
+  chainName?: string;
 }
 
 const themes = {
@@ -71,6 +72,7 @@ const themes = {
   },
 };
 
+
 // Helper to encode string to Base64 safely (handling Unicode/Emojis)
 function utf8_to_b64(str: string) {
   return window.btoa(
@@ -83,6 +85,7 @@ function utf8_to_b64(str: string) {
 export default function WarpletWrapped({
   displayName,
   metrics,
+   chainName = "base"
 }: WarpletWrappedProps) {
   const [currentTheme, setCurrentTheme] =
     useState<keyof typeof themes>("christmas");
@@ -96,6 +99,19 @@ export default function WarpletWrapped({
   const { sendCalls } = useSendCalls();
   const theme = themes[currentTheme];
   const cardRef = useRef<HTMLDivElement | null>(null);
+    const getChainDisplay = () => {
+    switch(chainName) {
+      case 'eth': return { name: 'Ethereum', icon: '💎' };
+      case 'base': return { name: 'Base', icon: '🔵' };
+      case 'arbitrum': return { name: 'Arbitrum', icon: '💙' };
+      case 'optimism': return { name: 'Optimism', icon: '🔴' };
+      case 'polygon': return { name: 'Polygon', icon: '💜' };
+      default: return { name: 'Chain', icon: '⛓️' };
+    }
+  };
+  
+  const chainInfo = getChainDisplay();
+
   const daysActive = metrics.firstTransactionDate 
   ? Math.floor((Date.now() - new Date(metrics.firstTransactionDate).getTime()) / (1000 * 60 * 60 * 24))
   : 0;
@@ -448,7 +464,18 @@ export default function WarpletWrapped({
       Active for {daysActive} Days
     </div>
   </div>
-
+  <div style={{ 
+          fontSize: "0.8rem", 
+          opacity: 0.5, 
+          marginTop: "4px", 
+          display: "flex", 
+          alignItems: "center", 
+          justifyContent: "center", 
+          gap: "6px" 
+        }}>
+          <span>{chainInfo.icon}</span>
+          <span>{chainInfo.name} Network</span>
+        </div>
           {metrics.firstTransactionDate && (
             <div
               style={{

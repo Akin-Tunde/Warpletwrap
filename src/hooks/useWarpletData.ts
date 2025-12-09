@@ -7,6 +7,7 @@ import {
   getProfitabilitySummary,
   getNetWorth,
   getWalletTokenBalances,
+  getWalletStats, // Added this import
   type MoralisTokenBalance,
 } from "../lib/moralis";
 import { getWarpletNFT } from "../lib/alchemy";
@@ -15,7 +16,17 @@ import type {
   MoralisProfitabilitySummaryResponse,
 } from "../types/moralis";
 
-// --- UPDATED INTERFACE ---
+// --- INTERFACES ---
+
+export interface IncomeBreakdown {
+  staking: number;
+  lending: number;
+  liquidity: number;
+  airdrop: number;
+  total: number;
+  details: Array<{ category: string; symbol: string; value: number; logo: string | null }>;
+}
+
 export interface WarpletMetrics {
   totalProfitLoss: number;
   biggestWin: {
@@ -54,10 +65,7 @@ export interface WarpletMetrics {
 
   // NEW FIELDS
   holdings: MoralisTokenBalance[];
-  income: {
-    airdrops: number;
-    staking: number;
-  };
+  income: IncomeBreakdown; // Updated type
   roi: {
     bestAsset: MoralisTokenBalance | null;
     worstAsset: MoralisTokenBalance | null;
@@ -65,9 +73,36 @@ export interface WarpletMetrics {
   };
 }
 
+// --- HELPER FUNCTIONS ---
+
+function classifyToken(token: MoralisTokenBalance, profitStats: MoralisTokenProfitability | undefined): string {
+  const symbol = token.symbol.toUpperCase();
+  const name = token.name.toUpperCase();
+  
+  // Airdrop Logic: Zero buy price but we have it, OR massive ROI (>1000%)
+  const isAirdrop = profitStats && (
+    (parseFloat(profitStats.avg_buy_price_usd) === 0 && profitStats.total_buys === 0) || 
+    profitStats.realized_profit_percentage > 1000
+  );
+  if (isAirdrop) return "Airdrop";
+
+  // Staking Logic (Liquid Staking Tokens)
+  if (['STETH', 'RETH', 'CBETH', 'WSTETH', 'SFRXETH', 'RPL', 'EIGEN'].some(s => symbol.includes(s))) return "Staking";
+  
+  // Lending/Borrowing Logic (Aave aTokens, Compound cTokens)
+  if (/^A[A-Z]+/.test(token.symbol) || /^C[A-Z]+/.test(token.symbol)) return "Lending";
+
+  // Liquidity / Yield Farming Logic
+  if (name.includes("LP") || name.includes("UNISWAP") || name.includes("CURVE") || name.includes("BALANCER") || symbol.includes("V2") || symbol.includes("SLP")) {
+    return "Liquidity";
+  }
+
+  return "Holding"; 
+}
+
 function calculateMetrics(
   tokens: MoralisTokenProfitability[],
-  holdings: MoralisTokenBalance[], // NEW PARAM
+  holdings: MoralisTokenBalance[],
   statsData?: { token_transfers: { total: string }; collections: string },
   summaryData?: MoralisProfitabilitySummaryResponse,
   chainsData?: {
@@ -78,15 +113,51 @@ function calculateMetrics(
   netWorthData?: { total_networth_usd: string },
   warpletNft?: any
 ): WarpletMetrics {
-  // Filter out tokens with no sells (no realized profit/loss)
+  
+  // 1. Filter out tokens with no sells
   const tradedTokens = tokens.filter((t) => t.total_sells > 0);
 
-  // Calculate total profit/loss
+  // 2. Initialize Income Breakdown
+  const incomeBreakdown: IncomeBreakdown = {
+    staking: 0,
+    lending: 0,
+    liquidity: 0,
+    airdrop: 0,
+    total: 0,
+    details: []
+  };
+
+  // 3. Process Holdings for Income & Classification
+  holdings.forEach(h => {
+    // Find profit stats for this holding to check cost basis
+    const profitStats = tokens.find(t => t.token_address.toLowerCase() === h.token_address.toLowerCase());
+    const category = classifyToken(h, profitStats);
+    
+    if (category !== "Holding") {
+      const val = h.usd_value;
+      
+      if (category === "Staking") incomeBreakdown.staking += val;
+      if (category === "Lending") incomeBreakdown.lending += val;
+      if (category === "Liquidity") incomeBreakdown.liquidity += val;
+      if (category === "Airdrop") incomeBreakdown.airdrop += val;
+
+      incomeBreakdown.details.push({
+        category,
+        symbol: h.symbol,
+        value: val,
+        logo: h.thumbnail || h.logo
+      });
+    }
+  });
+
+  incomeBreakdown.total = incomeBreakdown.staking + incomeBreakdown.lending + incomeBreakdown.liquidity + incomeBreakdown.airdrop;
+
+  // 4. Calculate P/L
   const totalProfitLoss = tradedTokens.reduce((sum, token) => {
     return sum + Number.parseFloat(token.realized_profit_usd);
   }, 0);
 
-  // Find biggest win (highest realized_profit_usd)
+  // 5. Find Biggest Win
   let biggestWin: WarpletMetrics["biggestWin"] = null;
   let maxProfit = -Infinity;
   for (const token of tradedTokens) {
@@ -97,7 +168,7 @@ function calculateMetrics(
     }
   }
 
-  // Find biggest loss (lowest realized_profit_usd)
+  // 6. Find Biggest Loss
   let biggestLoss: WarpletMetrics["biggestLoss"] = null;
   let minProfit = Infinity;
   for (const token of tradedTokens) {
@@ -108,7 +179,7 @@ function calculateMetrics(
     }
   }
 
-  // Find most traded token
+  // 7. Find Most Traded
   let mostTradedToken: WarpletMetrics["mostTradedToken"] = null;
   let maxTrades = 0;
   for (const token of tokens) {
@@ -118,7 +189,7 @@ function calculateMetrics(
     }
   }
 
-  // Calculate win rate
+  // 8. Calculate Win Rate
   const profitableTokens = tradedTokens.filter(
     (t) => Number.parseFloat(t.realized_profit_usd) > 0
   );
@@ -126,19 +197,18 @@ function calculateMetrics(
     tradedTokens.length > 0
       ? (profitableTokens.length / tradedTokens.length) * 100
       : 0;
-
       
   const currentNetWorth = netWorthData?.total_networth_usd
       ? Number.parseFloat(netWorthData.total_networth_usd)
       : 0;
 
-  // Calculate total trades
   const totalTrades = tokens.reduce(
     (sum, token) => sum + token.count_of_trades,
     0
   );
 
-let archetype = "Base Explorer 🧭";
+  // 9. Determine Archetype (Gamification)
+  let archetype = "Base Explorer 🧭";
   
   if (currentNetWorth > 50000) {
     archetype = "Based Whale 🐋";
@@ -152,11 +222,10 @@ let archetype = "Base Explorer 🧭";
     archetype = "JPEG Collector 🖼️";
   }
 
-  // --- NEW LOGIC for ROI & Income ---
+  // 10. Calculate ROI for Holdings
   let totalInvested = 0;
   let totalCurrentValue = 0;
 
-  // Match current holdings with profitability history to guess ROI
   const holdingsWithRoi = holdings.map((holding) => {
     const profitStats = tokens.find(
       (t) => t.token_address.toLowerCase() === holding.token_address.toLowerCase()
@@ -183,11 +252,6 @@ let archetype = "Base Explorer 🧭";
       ? ((totalCurrentValue - totalInvested) / totalInvested) * 100
       : 0;
 
-  // Estimated Airdrops: Tokens with buys but 0 avg buy price, or high value with low trades
-  const estimatedAirdrops = tokens
-    .filter((t) => parseFloat(t.avg_buy_price_usd) === 0 && t.total_buys > 0)
-    .reduce((acc, t) => acc + parseFloat(t.total_sold_usd), 0);
-
   return {
     totalProfitLoss,
     currentNetWorth,
@@ -197,6 +261,7 @@ let archetype = "Base Explorer 🧭";
     mostTradedToken,
     winRate,
     totalTrades,
+    
     totalTokenTransfers: statsData?.token_transfers?.total
       ? Number.parseInt(statsData.token_transfers.total)
       : 0,
@@ -220,12 +285,8 @@ let archetype = "Base Explorer 🧭";
     
     warpletNft: warpletNft || null,
 
-    // --- NEW RETURN FIELDS ---
     holdings: holdingsWithRoi,
-    income: {
-      airdrops: estimatedAirdrops,
-      staking: 0, // Staking detection requires paid/complex API
-    },
+    income: incomeBreakdown,
     roi: {
       bestAsset:
         holdingsWithRoi.length > 0
@@ -240,7 +301,9 @@ let archetype = "Base Explorer 🧭";
   };
 }
 
-export function useWarpletData(fid: number | null) {
+// --- MAIN HOOK ---
+
+export function useWarpletData(fid: number | null, chain: string = "base")  {
   // Fetch user data from Neynar
   const {
     data: userData,
@@ -259,54 +322,56 @@ export function useWarpletData(fid: number | null) {
     userData?.users[0]?.verified_addresses?.primary?.eth_address ||
     userData?.users[0]?.custody_address;
 
-  // Fetch profitability data from Moralis
+  // 1. Fetch Profitability (PASSING CHAIN)
   const {
     data: profitabilityData,
     isLoading: isLoadingProfitability,
     error: profitabilityError,
   } = useQuery({
-    queryKey: ["moralis-profitability", walletAddress],
+    queryKey: ["moralis-profitability", walletAddress, chain],
     queryFn: async () => {
       if (!walletAddress) throw new Error("No wallet address found");
-      return getWalletProfitability(walletAddress);
+      // Fix: Pass chain argument
+      return getWalletProfitability(walletAddress, chain);
     },
     enabled: !!walletAddress,
     staleTime: 1000 * 60 * 60,
     gcTime: 1000 * 60 * 60 * 24,
   });
 
-  // NEW: Fetch Token Balances
+  // 2. Fetch Token Balances (PASSING CHAIN)
   const {
     data: holdingsData,
     isLoading: isLoadingHoldings,
   } = useQuery({
-    queryKey: ["moralis-balances", walletAddress],
+    queryKey: ["moralis-balances", walletAddress, chain],
     queryFn: async () => {
       if (!walletAddress) throw new Error("No wallet address found");
-      return getWalletTokenBalances(walletAddress);
+      // Fix: Pass chain argument
+      return getWalletTokenBalances(walletAddress, chain);
     },
     enabled: !!walletAddress,
-    staleTime: 1000 * 60 * 5, // 5 mins
+    staleTime: 1000 * 60 * 5,
   });
 
-  // Fetch stats data from Moralis (includes token_transfers and collections)
+  // 3. Fetch Wallet Stats (PASSING CHAIN)
   const {
     data: statsData,
     isLoading: isLoadingStats,
     error: statsError,
   } = useQuery({
-    queryKey: ["moralis-stats", walletAddress],
+    queryKey: ["moralis-stats", walletAddress, chain],
     queryFn: async () => {
       if (!walletAddress) throw new Error("No wallet address found");
-      const data = await getWalletNetWorth(walletAddress);
-      return data;
+      // Fix: Use getWalletStats and pass chain argument
+      return getWalletStats(walletAddress, chain);
     },
     enabled: !!walletAddress,
     staleTime: 1000 * 60 * 60,
     gcTime: 1000 * 60 * 60 * 24,
   });
 
-  // Fetch chains data from Moralis (includes first transaction date)
+  // 4. Fetch Chains Data (No chain param needed usually, but logic kept same)
   const {
     data: chainsData,
     isLoading: isLoadingChains,
@@ -315,40 +380,41 @@ export function useWarpletData(fid: number | null) {
     queryKey: ["moralis-chains", walletAddress],
     queryFn: async () => {
       if (!walletAddress) throw new Error("No wallet address found");
-      const data = await getWalletChains(walletAddress);
-      return data;
+      return getWalletChains(walletAddress);
     },
     enabled: !!walletAddress,
     staleTime: 1000 * 60 * 60,
     gcTime: 1000 * 60 * 60 * 24,
   });
 
-  // Fetch profitability summary from Moralis
+  // 5. Fetch Summary (PASSING CHAIN)
   const {
     data: summaryData,
     isLoading: isLoadingSummary,
     error: summaryError,
   } = useQuery({
-    queryKey: ["moralis-summary", walletAddress],
+    queryKey: ["moralis-summary", walletAddress, chain],
     queryFn: async () => {
       if (!walletAddress) throw new Error("No wallet address found");
-      return getProfitabilitySummary(walletAddress);
+      // Fix: Pass chain argument
+      return getProfitabilitySummary(walletAddress, chain);
     },
     enabled: !!walletAddress,
     staleTime: 1000 * 60 * 60,
     gcTime: 1000 * 60 * 60 * 24,
   });
 
-  // Fetch net worth from Moralis
+  // 6. Fetch Net Worth (PASSING CHAIN)
   const {
     data: netWorthData,
     isLoading: isLoadingNetWorth,
     error: netWorthError,
   } = useQuery({
-    queryKey: ["moralis-networth", walletAddress],
+    queryKey: ["moralis-networth", walletAddress, chain],
     queryFn: async () => {
       if (!walletAddress) throw new Error("No wallet address found");
-      const data = await getNetWorth(walletAddress);
+      // Fix: Pass chain argument
+      const data = await getNetWorth(walletAddress, [chain]);
       return data;
     },
     enabled: !!walletAddress,
@@ -356,7 +422,7 @@ export function useWarpletData(fid: number | null) {
     gcTime: 1000 * 60 * 60 * 24,
   });
 
-  // Fetch Warplet NFT
+  // 7. Fetch Warplet NFT (Alchemy - Specific to Base, so no dynamic chain)
   const { data: warpletNft, isLoading: isLoadingNft } = useQuery({
     queryKey: ["alchemy-warplet-nft", walletAddress],
     queryFn: async () => {
