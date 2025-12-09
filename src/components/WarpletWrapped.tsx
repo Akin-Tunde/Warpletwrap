@@ -96,7 +96,9 @@ export default function WarpletWrapped({
   const { sendCalls } = useSendCalls();
   const theme = themes[currentTheme];
   const cardRef = useRef<HTMLDivElement | null>(null);
-
+  const daysActive = metrics.firstTransactionDate 
+  ? Math.floor((Date.now() - new Date(metrics.firstTransactionDate).getTime()) / (1000 * 60 * 60 * 24))
+  : 0;
   const DONUT_TOKEN_ADDRESS =
     "0xae4a37d554c6d6f3e398546d8566b25052e0169c" as const;
 
@@ -158,7 +160,7 @@ export default function WarpletWrapped({
       // Upload metadata including image URL
       // We keep the upload call because we need the hash for the contract
       // but we don't need to save it to React state anymore.
-      await uploadToIPFS({
+       const hash = await uploadToIPFS({
         username: displayName,
         totalProfitLoss: metrics.totalProfitLoss,
         winRate: metrics.winRate,
@@ -168,6 +170,7 @@ export default function WarpletWrapped({
       });
       
       // FIX 3: Remove setIpfsHash(hash) call here
+ const tokenURI = `ipfs://${hash}`;
 
       const txHash = await mintWithETHWrite({
         address: MintContract.address as `0x${string}`,
@@ -178,6 +181,7 @@ export default function WarpletWrapped({
           BigInt(Math.floor(metrics.totalProfitLoss * 100)),
           BigInt(Math.floor(metrics.winRate * 100)),
           BigInt(Math.floor(metrics.currentNetWorth * 100)),
+          tokenURI,
         ],
         value: parseEther("0.01"),
       });
@@ -204,8 +208,8 @@ export default function WarpletWrapped({
       const imageHash = await uploadBlobToIPFS(blob, "warplet-card.png");
       const imageUrl = getIPFSUrl(imageHash);
 
-      // We keep the upload call logic
-      await uploadToIPFS({
+      // CHANGE 1: Assign the result to 'const hash'
+      const hash = await uploadToIPFS({
         username: displayName,
         totalProfitLoss: metrics.totalProfitLoss,
         winRate: metrics.winRate,
@@ -213,7 +217,9 @@ export default function WarpletWrapped({
         imageUrl,
         timestamp: Date.now(),
       });
-      
+
+      // CHANGE 2: Create the tokenURI
+      const tokenURI = `ipfs://${hash}`;
       // FIX 4: Remove setIpfsHash(hash) call here
 
       const calls = [
@@ -252,6 +258,7 @@ export default function WarpletWrapped({
               BigInt(Math.floor(metrics.totalProfitLoss * 100)),
               BigInt(Math.floor(metrics.winRate * 100)),
               BigInt(Math.floor(metrics.currentNetWorth * 100)),
+              tokenURI,
             ],
           }),
         },
@@ -407,7 +414,41 @@ export default function WarpletWrapped({
             <span style={{ color: theme.accentColor }}>
               {currentTheme === "christmas" ? "Holiday" : "Warplet"} Wrapped
             </span>
+             <sup style={{ fontSize: "1rem", marginLeft: "5px" }}>
+       ⚡
+    </sup>
           </h1>
+           <div style={{ 
+      background: theme.accentColor, 
+      color: theme.bg,
+      display: "inline-block",
+      padding: "4px 12px",
+      borderRadius: "12px",
+      fontWeight: "bold",
+      fontSize: "0.9rem",
+      marginBottom: "8px",
+      boxShadow: "0 2px 8px rgba(0,0,0,0.2)"
+  }}>
+    {metrics.archetype}
+  </div>
+
+  {/* NEW: DAYS ACTIVE (Steal from DeBank) */}
+  <div style={{ display: "block", marginTop: "4px" }}>
+    <div
+      style={{
+        opacity: 0.9,
+        fontSize: "0.7rem",
+        fontStyle: "italic",
+        background: theme.secondaryBg,
+        display: "inline-block",
+        padding: "2px 10px",
+        borderRadius: "20px",
+      }}
+    >
+      Active for {daysActive} Days
+    </div>
+  </div>
+
           {metrics.firstTransactionDate && (
             <div
               style={{
@@ -623,12 +664,21 @@ export default function WarpletWrapped({
                 minWidth: 0,
                 flex: 1,
               }}
-            >
-              <div style={{ fontSize: "1.25rem", flexShrink: 0 }}>🎁</div>
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: "0.7rem", opacity: 0.8 }}>
-                  Biggest Win
-                </div>
+            >{metrics.biggestWin.token.logo ? (
+        <img 
+          src={metrics.biggestWin.token.logo} 
+          alt="token" 
+          style={{ width: "32px", height: "32px", borderRadius: "50%", border: "2px solid rgba(255,255,255,0.1)" }} 
+        />
+      ) : (
+        <div style={{ fontSize: "1.25rem", flexShrink: 0 }}>🎁</div>
+      )}
+
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: "0.7rem", opacity: 0.8 }}>Biggest Win</div>
+        <div style={{ fontWeight: "bold", fontSize: "0.9rem" }}>
+          {metrics.biggestWin.token.symbol}
+        </div>
                 <div
                   style={{
                     fontWeight: "bold",

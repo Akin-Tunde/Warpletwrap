@@ -30,6 +30,7 @@ export interface WarpletMetrics {
     token: MoralisTokenProfitability;
     tradeCount: number;
   } | null;
+  archetype: string;
   winRate: number;
   totalTrades: number;
   totalTokenTransfers: number;
@@ -126,11 +127,30 @@ function calculateMetrics(
       ? (profitableTokens.length / tradedTokens.length) * 100
       : 0;
 
+      
+  const currentNetWorth = netWorthData?.total_networth_usd
+      ? Number.parseFloat(netWorthData.total_networth_usd)
+      : 0;
+
   // Calculate total trades
   const totalTrades = tokens.reduce(
     (sum, token) => sum + token.count_of_trades,
     0
   );
+
+let archetype = "Base Explorer 🧭";
+  
+  if (currentNetWorth > 50000) {
+    archetype = "Based Whale 🐋";
+  } else if (totalProfitLoss < -500 && totalTrades > 100) {
+    archetype = "Diamond Handed Degen 💎"; // Lost money but trades a lot
+  } else if (winRate > 65 && totalTrades > 20) {
+    archetype = "Alpha Hunter 🎯";
+  } else if (holdings.length > 0 && holdings[0].portfolio_percentage > 70) {
+    archetype = "Maximalist 🦁"; // All in on one coin
+  } else if (statsData?.collections && parseInt(statsData.collections) > 30) {
+    archetype = "JPEG Collector 🖼️";
+  }
 
   // --- NEW LOGIC for ROI & Income ---
   let totalInvested = 0;
@@ -170,6 +190,8 @@ function calculateMetrics(
 
   return {
     totalProfitLoss,
+    currentNetWorth,
+    archetype,
     biggestWin,
     biggestLoss,
     mostTradedToken,
@@ -195,9 +217,7 @@ function calculateMetrics(
     firstTransactionDate:
       chainsData?.active_chains?.[0]?.first_transaction?.block_timestamp ||
       null,
-    currentNetWorth: netWorthData?.total_networth_usd
-      ? Number.parseFloat(netWorthData.total_networth_usd)
-      : 0,
+    
     warpletNft: warpletNft || null,
 
     // --- NEW RETURN FIELDS ---

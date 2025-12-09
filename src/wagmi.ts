@@ -6,7 +6,8 @@ export const config = createConfig({
   chains: [base, mainnet],
   connectors: [farcasterMiniApp()],
   transports: {
-    [base.id]: http(),
+
+    [base.id]: http(`https://base-mainnet.g.alchemy.com/v2/${import.meta.env.VITE_ALCHEMY_API_KEY}`),
     [mainnet.id]: http(),
   },
 });
