@@ -5,6 +5,7 @@ import PortfolioDashboard from "./components/PortfolioDashboard";
 import BottomNav from "./components/BottomNav";
 import { useWarpletData } from "./hooks/useWarpletData";
 import ChainSelector from "./components/ChainSelector";
+import WrappedStory from "./components/WrappedStory";
 
 
 
@@ -346,49 +347,13 @@ function App() {
 
         {/* VIEW 5: Minting */}
         {activeTab === "mint" && (
-          <div
-            style={{
-              padding: "2rem",
-              textAlign: "center",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              minHeight: "60vh",
-            }}
-          >
-            <div style={{ fontSize: "4rem", marginBottom: "1rem" }}>✨</div>
-            <h2 style={{ color: appTheme.accentColor, marginBottom: "1rem" }}>
-              Mint Your Legacy
-            </h2>
-            <p
-              style={{
-                opacity: 0.8,
-                maxWidth: "300px",
-                lineHeight: "1.6",
-                marginBottom: "2rem",
-              }}
-            >
-              Mint your 2025 Trading Card as a permanent NFT on Base. Store your
-              P/L, Win Rate, and Net Worth on-chain forever.
-            </p>
-            <button
-              onClick={() => setActiveTab("wrapped")}
-              style={{
-                padding: "1rem 2rem",
-                background: appTheme.accentColor,
-                color: "#181818",
-                border: "none",
-                borderRadius: "1rem",
-                fontWeight: "bold",
-                fontSize: "1.1rem",
-                cursor: "pointer",
-              }}
-            >
-              Go to Wrapped Card
-            </button>
-          </div>
-        )}
+  <WrappedStory 
+    displayName={user.display_name || user.username}
+    userImage={user.pfp_url}
+    metrics={metrics}
+    theme={appTheme}
+  />
+)}
       </div>
 
       {/* Fixed Bottom Navigation */}

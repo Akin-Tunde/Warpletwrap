@@ -23,3 +23,22 @@ export async function getUserByFid(
 
   return response.json();
 }
+
+
+export async function getUserCasts(fid: number, limit = 1000) {
+  const response = await fetch(
+    `${NEYNAR_BASE_URL}/feed/user/casts?fid=${fid}&limit=${limit}&include_replies=true&include_recasts=true`,
+    {
+      headers: {
+        accept: "application/json",
+        "x-api-key": NEYNAR_API_KEY || "",
+      },
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch casts");
+  }
+
+  return response.json();
+}
