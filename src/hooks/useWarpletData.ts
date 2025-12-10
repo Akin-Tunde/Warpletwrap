@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getUserByFid, getUserCasts } from "../lib/neynar";
 import {
   getWalletProfitability,
-  getWalletNetWorth,
+  
   getWalletChains,
   getProfitabilitySummary,
   getNetWorth,

@@ -55,7 +55,7 @@ export default function PortfolioDashboard({
   }, [chainName, metrics, view]);
 
   const holdings = metrics.holdings || [];
-  const income = metrics.income || { airdrops: 0, staking: 0 };
+  //const income = metrics.income || { airdrops: 0, staking: 0 };
   const roi = metrics.roi || { bestAsset: null, worstAsset: null, averageRoi: 0 };
 
   const sortedHoldings = [...holdings].sort((a, b) => b.usd_value - a.usd_value);
