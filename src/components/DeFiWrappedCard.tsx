@@ -92,7 +92,7 @@ export default function DeFiWrappedCard({ displayName, metrics, theme }: DeFiCar
           BigInt(Math.floor(metrics.currentNetWorth * 100)),
           `ipfs://${metadataHash}` // <--- This points to the DeFi Card image
         ],
-        value: parseEther("0.01"), // Price: 0.01 ETH
+        value: parseEther("0.0003"), // Price: 0.0003 ETH
       });
 
       setSuccessHash(txHash);
@@ -259,7 +259,7 @@ export default function DeFiWrappedCard({ displayName, metrics, theme }: DeFiCar
             <>Processing...</>
           ) : (
             <>
-              <span>✨</span> Mint DeFi Card (0.01 ETH)
+              <span>✨</span> Mint DeFi Card (0.0003 ETH)
             </>
           )}
         </button>

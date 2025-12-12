@@ -107,7 +107,7 @@ export default function MintModal({
               BigInt(Math.floor(metrics.winRate * 100)),
               BigInt(Math.floor(metrics.currentNetWorth * 100)),
             ],
-            value: parseEther("0.01"), // Default price, update as needed
+            value: parseEther("0.0003"), // Default price, update as needed
           })
             .then((hash) => {
               setPendingHash(hash);

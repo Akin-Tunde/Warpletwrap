@@ -199,7 +199,7 @@ export default function WarpletWrapped({
           BigInt(Math.floor(metrics.currentNetWorth * 100)),
           tokenURI,
         ],
-        value: parseEther("0.01"),
+        value: parseEther("0.0003"),
       });
       if (txHash) {
         setShowShareModal(true);

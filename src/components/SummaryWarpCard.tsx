@@ -33,7 +33,7 @@ export default function SummaryWarpCard({ displayName, userImage, metrics, theme
   const fmtUSD = (n: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', notation: "compact" }).format(n);
 
   // --- MINT LOGIC ---
- // --- MINT LOGIC ---
+
   const handleMint = async () => {
     if (!address) return;
     setIsLoading(true);
@@ -43,8 +43,7 @@ export default function SummaryWarpCard({ displayName, userImage, metrics, theme
       if (!node) throw new Error("Card not found");
       
       const blob = await toBlob(node, { cacheBust: true, pixelRatio: 2, backgroundColor: "#000" });
-      
-      // FIX: Add this check to satisfy TypeScript
+
       if (!blob) {
         throw new Error("Failed to generate image blob");
       }
@@ -72,7 +71,7 @@ export default function SummaryWarpCard({ displayName, userImage, metrics, theme
           BigInt(Math.floor(netWorth * 100)), 
           `ipfs://${metadataHash}`
         ],
-        value: parseEther("0.01"),
+        value: parseEther("0.0003"),
       });
       setSuccessHash(txHash);
     } catch (err: any) {
@@ -228,7 +227,7 @@ export default function SummaryWarpCard({ displayName, userImage, metrics, theme
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
           }}
         >
-          {isLoading ? "Minting..." : "✨ Mint Your Wrapped Card (0.01 ETH)"}
+          {isLoading ? "Minting..." : "✨ Mint Your Wrapped Card (0.0003 ETH)"}
         </button>
       </div>
     </div>

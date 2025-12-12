@@ -1,8 +1,8 @@
 {
   "accountAssociation": {
-    "header": "eyJmaWQiOjIzOTM5NiwidHlwZSI6ImN1c3RvZHkiLCJrZXkiOiIweDRENEU1MjIzODRkNkYxMDkwYkZENEM0NTI3YTdkNTJERmQyMGJDYTMifQ",
-    "payload": "eyJkb21haW4iOiJ3YXJwbGV0d3JhcC52ZXJjZWwuYXBwIn0",
-    "signature": "Hvfp0NSk/pVK4eBOkvgE+Zyv8aM0TuZOCgexeoGJ8YMqtGRE4O9LMqLtIlowfccb+viuQyw7We8A6sOQXsSd1Rw="
+    "header": "eyJmaWQiOjg1MDgyMywidHlwZSI6ImN1c3RvZHkiLCJrZXkiOiIweDU1MzZFNTQyMTMzQTlCYWUzYjRkRjcxQjIyQThGMThlNzhCMjA4Y0IifQ",
+    "payload": "eyJkb21haW4iOiJ3YXJwbGV0Lm5ldGxpZnkuYXBwIn0",
+    "signature": "p7I1jUCk63ejj/qsrZ9kCob75LsfgsXUU2zZjmhnFSsrNps/xKO3G9IbxYsETCM/Zp0P2zD4xj7+t8Sv1QBLnRs="
   },
   "frame": {
     "version": "1",
@@ -16,6 +16,8 @@
     "webhookUrl": "https://api.neynar.com/f/app/054d9c86-0ec5-4c9d-9b1d-fde74f2b341b/event"
   },
   "baseBuilder": {
-    "ownerAddress": "0x02a9093dEB73E9E524657492429377117C70e097"
+    "ownerAddress": "0x1f2a52f0f9cd60df8d0057c4a5a10eae64263b48"
   }
 }
+
+

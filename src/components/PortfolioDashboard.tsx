@@ -140,7 +140,7 @@ export default function PortfolioDashboard({
                         </div>
                         <div style={{ textAlign: "right" }}>
                            <div style={{ fontWeight: "700" }}>{formatUSD(token.usd_value)}</div>
-                           {Math.abs(tokenRoi) > 0.01 ? <div style={{ fontSize: "0.8rem", color: isProfitable ? theme.positiveColor : theme.negativeColor }}>{isProfitable ? '+' : ''}{tokenRoi.toFixed(1)}%</div> : <div style={{ fontSize: "0.8rem", opacity: 0.4 }}>${token.usd_price.toFixed(2)}</div>}
+                           {Math.abs(tokenRoi) > 0.0003 ? <div style={{ fontSize: "0.8rem", color: isProfitable ? theme.positiveColor : theme.negativeColor }}>{isProfitable ? '+' : ''}{tokenRoi.toFixed(1)}%</div> : <div style={{ fontSize: "0.8rem", opacity: 0.4 }}>${token.usd_price.toFixed(2)}</div>}
                         </div>
                     </div>
                  );
