@@ -6,12 +6,12 @@
   },
   "frame": {
     "version": "1",
-    "name": "Warplet Wrapped",
-    "iconUrl": "https://warplet.netlify.app/icon.jpg",
+    "name": "Warplet Manager",
+    "iconUrl": "https://warplet.netlify.app/icon.jpeg",
     "homeUrl": "https://warplet.netlify.app",
-    "imageUrl": "https://warplet.netlify.app/image.jpg",
+    "imageUrl": "https://warplet.netlify.app/image.jpeg",
     "buttonTitle": "Check your stats",
-    "splashImageUrl": "https://warplet.netlify.app/splash.jpg",
+    "splashImageUrl": "https://warplet.netlify.app/splash.jpeg",
     "splashBackgroundColor": "#ffffff",
     "webhookUrl": "https://api.neynar.com/f/app/054d9c86-0ec5-4c9d-9b1d-fde74f2b341b/event"
   },
