@@ -1,9 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
-  PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, AreaChart, Area, XAxis, YAxis, CartesianGrid,
+  PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, AreaChart, Area, XAxis, YAxis, CartesianGrid, ReferenceLine,
 } from "recharts";
 import type { WarpletMetrics } from "../hooks/useWarpletData";
-// 1. IMPORT THE CARD
 import DeFiWrappedCard from "./DeFiWrappedCard";
 
 interface DashboardProps {
@@ -11,13 +10,16 @@ interface DashboardProps {
   theme: any;
   view: "allocation" | "income" | "history";
   chainName?: string;
-  displayName?: string; // Added prop
+  displayName?: string;
 }
 
 const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"];
 
 const formatUSD = (val: number) => 
-  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
+  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(val);
+
+const formatCompact = (val: number) => 
+  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', notation: "compact" }).format(val);
 
 const formatBalance = (val: string, decimals: number) => {
   const num = Number(val) / (10 ** decimals);
@@ -45,23 +47,22 @@ export default function PortfolioDashboard({
   
   // --- STATE ---
   const [currentPage, setCurrentPage] = useState(0);
-  const [incomeTab, setIncomeTab] = useState<'stats' | 'card'>('stats'); // 2. NEW TAB STATE
-  
+  const [incomeTab, setIncomeTab] = useState<'stats' | 'card'>('stats');
+  const [timeRange, setTimeRange] = useState<'1M' | '3M' | '1Y' | 'ALL'>('ALL');
+
   const ITEMS_PER_PAGE = 10;
 
   useEffect(() => {
     setCurrentPage(0);
-    setIncomeTab('stats'); // Reset tab when view changes
+    setIncomeTab('stats'); 
   }, [chainName, metrics, view]);
 
+  // --- DATA PREP ---
   const holdings = metrics.holdings || [];
-  //const income = metrics.income || { airdrops: 0, staking: 0 };
   const roi = metrics.roi || { bestAsset: null, worstAsset: null, averageRoi: 0 };
-
   const sortedHoldings = [...holdings].sort((a, b) => b.usd_value - a.usd_value);
   const totalPages = Math.ceil(sortedHoldings.length / ITEMS_PER_PAGE);
   const paginatedHoldings = sortedHoldings.slice(currentPage * ITEMS_PER_PAGE, (currentPage + 1) * ITEMS_PER_PAGE);
-  
   const topHoldings = sortedHoldings.slice(0, 5);
   const otherValue = sortedHoldings.slice(5).reduce((acc, curr) => acc + curr.usd_value, 0);
 
@@ -70,14 +71,55 @@ export default function PortfolioDashboard({
     { name: "Others", value: otherValue },
   ].filter((d) => d.value > 0);
 
-  const historyData = [
-    { name: "Jan", value: metrics.currentNetWorth * 0.8 },
-    { name: "Feb", value: metrics.currentNetWorth * 0.7 },
-    { name: "Mar", value: metrics.currentNetWorth * 0.9 },
-    { name: "Apr", value: metrics.currentNetWorth * 1.1 },
-    { name: "May", value: metrics.currentNetWorth },
-  ];
+  // --- HISTORY DATA GENERATION (Simulated based on PnL) ---
+  const historyData = useMemo(() => {
+    // We only have Snapshot data (Current Net Worth & Total PnL).
+    // We recreate the "Journey" by interpolating from (NetWorth - PnL) to (NetWorth).
+    const currentVal = metrics.currentNetWorth;
+    const totalPnL = metrics.totalProfitLoss;
+    const startVal = currentVal - totalPnL; // Effectively the "Cost Basis"
+    
+    const points = 30; // 30 Data points
+    const data = [];
+    const now = new Date();
+    
+    let simulatedHigh = Math.max(startVal, currentVal);
 
+    for (let i = 0; i < points; i++) {
+      const progress = i / (points - 1); // 0 to 1
+      
+      // Linear interpolation
+      let val = startVal + (currentVal - startVal) * progress;
+      
+      // Add "Crypto Volatility" noise
+      // More noise in the middle, less at start/end to ensure we hit exact numbers
+      const noiseFactor = Math.sin(progress * Math.PI) * (Math.abs(totalPnL) * 0.4); 
+      const randomVariance = (Math.random() - 0.5) * noiseFactor;
+      
+      val += randomVariance;
+      
+      // Ensure no negative values if net worth is positive
+      if (val < 0) val = 0; 
+      if (val > simulatedHigh) simulatedHigh = val;
+
+      const date = new Date(now);
+      date.setDate(date.getDate() - (points - 1 - i));
+
+      data.push({
+        date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        value: val,
+        basis: startVal // Reference line for Cost Basis
+      });
+    }
+
+    // Force exact end match
+    data[points - 1].value = currentVal;
+    
+    return { data, startVal, simulatedHigh };
+  }, [metrics]);
+
+
+  // --- STYLES ---
   const ContainerStyle = {
     width: "100%", maxWidth: "800px", margin: "0 auto", color: theme.textColor,
     padding: "1rem", boxSizing: "border-box" as const, paddingBottom: "120px",
@@ -159,7 +201,7 @@ export default function PortfolioDashboard({
     );
   }
 
-  // --- VIEW 2: INCOME (UPDATED WITH TABS) ---
+  // --- VIEW 2: INCOME ---
   if (view === "income") {
     // @ts-ignore
     const breakdown = metrics.income as any; 
@@ -167,7 +209,7 @@ export default function PortfolioDashboard({
     return (
       <div style={ContainerStyle}>
         
-        {/* 3. TOGGLE SWITCH */}
+        {/* TOGGLE SWITCH */}
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.5rem', marginTop: '1rem' }}>
           <div style={{ background: theme.secondaryBg, padding: '4px', borderRadius: '30px', display: 'flex', gap: '4px', border: `1px solid ${theme.accentColor}40` }}>
             <button 
@@ -202,7 +244,7 @@ export default function PortfolioDashboard({
             </p>
           </div>
         ) : (
-          /* TAB CONTENT: STATS (The original grid) */
+          /* TAB CONTENT: STATS */
           <>
             <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
               <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: theme.cardBg, padding: '4px 12px', borderRadius: '20px', fontSize: '0.8rem', marginBottom: '8px', border: `1px solid ${theme.accentColor}40` }}>
@@ -255,33 +297,141 @@ export default function PortfolioDashboard({
     );
   }
 
-  // --- VIEW 3: HISTORY ---
+  // --- VIEW 3: HISTORY (IMPROVED) ---
   if (view === "history") {
-    // ... (Keep existing history logic)
+    const isPositive = roi.averageRoi >= 0;
+    const chartColor = isPositive ? theme.positiveColor : theme.negativeColor;
+    
+    // Custom Tooltip Component
+    const CustomTooltip = ({ active, payload, label }: any) => {
+      if (active && payload && payload.length) {
+        return (
+          <div style={{ 
+            background: theme.cardBg, 
+            border: `1px solid ${theme.accentColor}40`,
+            padding: "10px", 
+            borderRadius: "12px",
+            boxShadow: "0 10px 20px rgba(0,0,0,0.3)",
+            minWidth: "120px"
+          }}>
+            <p style={{ margin: 0, fontSize: "0.8rem", opacity: 0.7, marginBottom: "4px" }}>{label}</p>
+            <p style={{ margin: 0, fontSize: "1rem", fontWeight: "bold", color: theme.textColor }}>
+              {formatUSD(payload[0].value)}
+            </p>
+          </div>
+        );
+      }
+      return null;
+    };
+
     return (
       <div style={ContainerStyle}>
-        <h2 style={{ textAlign: "center", marginBottom: "1.5rem" }}>Performance</h2>
-        <div style={{ ...CardStyle, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-           <div>
-             <h3 style={{ fontSize: "0.9rem", opacity: 0.8, margin: 0 }}>Portfolio ROI</h3>
-             <div style={{ fontSize: "2.5rem", fontWeight: "800", color: roi.averageRoi >= 0 ? theme.positiveColor : theme.negativeColor }}>
-                {roi.averageRoi > 0 ? '+' : ''}{roi.averageRoi.toFixed(2)}%
-             </div>
-           </div>
-           <div style={{ fontSize: "3rem" }}>📈</div>
+        
+        {/* Header Stats */}
+        <div style={{ textAlign: "center", marginBottom: "2rem", marginTop: "1rem" }}>
+          <h2 style={{ fontSize: "1rem", opacity: 0.7, margin: 0, textTransform: "uppercase", letterSpacing: "1px" }}>Portfolio Performance</h2>
+          <div style={{ fontSize: "2.5rem", fontWeight: "900", marginTop: "0.5rem" }}>
+            {isPositive ? '+' : ''}{roi.averageRoi.toFixed(2)}%
+          </div>
+          <div style={{ 
+            color: chartColor, 
+            background: `${chartColor}20`, 
+            display: "inline-block", 
+            padding: "4px 12px", 
+            borderRadius: "12px", 
+            fontWeight: "bold",
+            marginTop: "0.5rem",
+            fontSize: "0.9rem"
+          }}>
+             {formatUSD(metrics.totalProfitLoss)} PnL
+          </div>
         </div>
-        <div style={{ ...CardStyle, height: "350px", padding: "1.5rem 0.5rem 0 0" }}>
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={historyData}>
-              <defs><linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor={theme.accentColor} stopOpacity={0.8} /><stop offset="95%" stopColor={theme.accentColor} stopOpacity={0} /></linearGradient></defs>
-              <CartesianGrid strokeDasharray="3 3" opacity={0.1} vertical={false} />
-              <XAxis dataKey="name" stroke={theme.textColor} opacity={0.5} tick={{fontSize: 12}} axisLine={false} tickLine={false}/>
-              <YAxis stroke={theme.textColor} opacity={0.5} tick={{fontSize: 12}} axisLine={false} tickLine={false} tickFormatter={(val) => `$${val/1000}k`}/>
-              <Tooltip contentStyle={{ backgroundColor: theme.cardBg, borderRadius: "12px", border: "none", color: theme.textColor }} formatter={(val: number) => formatUSD(val)}/>
-              <Area type="monotone" dataKey="value" stroke={theme.accentColor} strokeWidth={3} fillOpacity={1} fill="url(#colorValue)" />
+
+        {/* Chart Container */}
+        <div style={{ ...CardStyle, height: "400px", padding: "1.5rem 0", position: 'relative', overflow: 'hidden' }}>
+          
+          {/* Time Range Selector (Visual Only for Simulated Data) */}
+          <div style={{ display: "flex", justifyContent: "flex-end", paddingRight: "1.5rem", marginBottom: "1rem", gap: "5px" }}>
+            {['1M', '3M', '1Y', 'ALL'].map((range) => (
+              <button
+                key={range}
+                onClick={() => setTimeRange(range as any)}
+                style={{
+                  background: timeRange === range ? theme.accentColor : 'transparent',
+                  color: timeRange === range ? theme.bg : theme.textColor,
+                  border: `1px solid ${timeRange === range ? theme.accentColor : theme.accentColor + '20'}`,
+                  borderRadius: "8px",
+                  padding: "4px 10px",
+                  fontSize: "0.75rem",
+                  cursor: "pointer",
+                  fontWeight: "bold"
+                }}
+              >
+                {range}
+              </button>
+            ))}
+          </div>
+
+          <ResponsiveContainer width="100%" height="85%">
+            <AreaChart data={historyData.data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+              <defs>
+                <linearGradient id="colorPnL" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor={chartColor} stopOpacity={0.3} />
+                  <stop offset="95%" stopColor={chartColor} stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={theme.textColor} opacity={0.1} />
+              <XAxis 
+                dataKey="date" 
+                axisLine={false} 
+                tickLine={false} 
+                tick={{ fill: theme.textColor, fontSize: 10, opacity: 0.5 }} 
+                minTickGap={30}
+              />
+              <YAxis 
+                hide={true} 
+                domain={['auto', 'auto']}
+              />
+              <Tooltip content={<CustomTooltip />} cursor={{ stroke: theme.textColor, strokeWidth: 1, strokeDasharray: "4 4", opacity: 0.3 }} />
+              
+              {/* Cost Basis Line */}
+              <ReferenceLine y={historyData.startVal} stroke={theme.textColor} strokeDasharray="3 3" opacity={0.3} label={{ position: 'insideBottomRight', value: 'Invested', fill: theme.textColor, fontSize: 10, opacity: 0.5 }} />
+              
+              <Area 
+                type="monotone" 
+                dataKey="value" 
+                stroke={chartColor} 
+                strokeWidth={3} 
+                fillOpacity={1} 
+                fill="url(#colorPnL)" 
+                animationDuration={1500}
+              />
             </AreaChart>
           </ResponsiveContainer>
         </div>
+
+        {/* Key Metrics Grid */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px" }}>
+          <div style={{ background: theme.secondaryBg, borderRadius: "1rem", padding: "1rem", textAlign: "center", border: `1px solid ${theme.accentColor}20` }}>
+            <div style={{ fontSize: "0.7rem", opacity: 0.7, marginBottom: "5px" }}>Cost Basis</div>
+            <div style={{ fontWeight: "bold", fontSize: "0.9rem" }}>{formatCompact(historyData.startVal)}</div>
+          </div>
+          <div style={{ background: theme.secondaryBg, borderRadius: "1rem", padding: "1rem", textAlign: "center", border: `1px solid ${theme.accentColor}20` }}>
+            <div style={{ fontSize: "0.7rem", opacity: 0.7, marginBottom: "5px" }}>Est. High</div>
+            <div style={{ fontWeight: "bold", fontSize: "0.9rem", color: theme.positiveColor }}>{formatCompact(historyData.simulatedHigh)}</div>
+          </div>
+          <div style={{ background: theme.secondaryBg, borderRadius: "1rem", padding: "1rem", textAlign: "center", border: `1px solid ${theme.accentColor}20` }}>
+             <div style={{ fontSize: "0.7rem", opacity: 0.7, marginBottom: "5px" }}>Drawdown</div>
+             <div style={{ fontWeight: "bold", fontSize: "0.9rem", color: metrics.biggestLoss ? theme.negativeColor : theme.textColor }}>
+               {metrics.biggestLoss ? Math.abs(metrics.biggestLoss.token.realized_profit_percentage).toFixed(1) : "0.0"}%
+             </div>
+          </div>
+        </div>
+
+        <div style={{ marginTop: "2rem", padding: "1rem", background: "rgba(59, 130, 246, 0.1)", border: "1px solid rgba(59, 130, 246, 0.2)", borderRadius: "1rem", fontSize: "0.8rem", textAlign: "center", opacity: 0.8 }}>
+          ℹ️ Chart simulated based on current PnL data.
+        </div>
+
       </div>
     );
   }

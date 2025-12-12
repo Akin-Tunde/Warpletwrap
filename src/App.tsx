@@ -7,8 +7,6 @@ import { useWarpletData } from "./hooks/useWarpletData";
 import ChainSelector from "./components/ChainSelector";
 import WrappedStory from "./components/WrappedStory";
 
-
-
 function App() {
   const [context, setContext] = useState<Awaited<typeof sdk.context> | null>(
     null
@@ -16,11 +14,12 @@ function App() {
 
   const [currentChain, setCurrentChain] = useState("base");
 
-  const [activeTab, setActiveTab] = useState("wrapped");
+  // CHANGED: Default state is now "mint"
+  const [activeTab, setActiveTab] = useState("mint");
+  
   const [devFid, setDevFid] = useState<string>("");
   const [useDevMode, setUseDevMode] = useState(false);
 
-  
   const appTheme = {
     bg: "#181818",
     cardBg: "#242424",
@@ -347,13 +346,13 @@ function App() {
 
         {/* VIEW 5: Minting */}
         {activeTab === "mint" && (
-  <WrappedStory 
-    displayName={user.display_name || user.username}
-    userImage={user.pfp_url}
-    metrics={metrics}
-    theme={appTheme}
-  />
-)}
+          <WrappedStory 
+            displayName={user.display_name || user.username}
+            userImage={user.pfp_url}
+            metrics={metrics}
+            theme={appTheme}
+          />
+        )}
       </div>
 
       {/* Fixed Bottom Navigation */}
