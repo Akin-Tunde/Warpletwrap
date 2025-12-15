@@ -13,7 +13,7 @@ interface SummaryCardProps {
   theme: any;
 }
 
-export default function SummaryWarpCard({ displayName, userImage, metrics, theme }: SummaryCardProps) {
+export default function SummaryWarpCard({ displayName, userImage, metrics }: SummaryCardProps) {
   const { address } = useAccount();
   const { writeContractAsync } = useWriteContract();
   
