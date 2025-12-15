@@ -1,291 +1,211 @@
-import { useState, useEffect } from "react";
+import { useState, useRef } from "react";
+import { useAccount, useWriteContract } from "wagmi";
+import { toBlob } from "html-to-image";
+import { parseEther } from "viem";
 import type { WarpletMetrics } from "../hooks/useWarpletData";
-import SummaryWarpCard from "./SummaryWarpCard";
+import { MintContract } from "../lib/Contracts";
+import { uploadBlobToIPFS, uploadToIPFS, getIPFSUrl } from "../lib/pinata";
 
-interface StoryProps {
+interface SummaryCardProps {
   displayName: string;
+  userImage: string;
   metrics: WarpletMetrics;
   theme: any;
-  userImage: string;
 }
 
-export default function WrappedStory({ displayName, metrics, userImage, theme }: StoryProps) {
-  const [slideIndex, setSlideIndex] = useState(0);
-  const [progress, setProgress] = useState(0);
-  const [isPaused, setIsPaused] = useState(false);
+export default function SummaryWarpCard({ displayName, userImage, metrics, theme }: SummaryCardProps) {
+  const { address } = useAccount();
+  const { writeContractAsync } = useWriteContract();
+  
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [successHash, setSuccessHash] = useState<string | null>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
 
-  // --- DATA PREP (Wallet Only) ---
+  // Data Extraction (Wallet Only)
+  const netWorth = metrics.currentNetWorth || 0;
+  const pnl = metrics.totalProfitLoss || 0;
+  const vol = metrics.totalTradeVolume || 0;
+  const tradeCount = metrics.totalTrades || 0;
+  const archetype = metrics.archetype || "Explorer";
+  
+  // Calculate Tenure
   const daysActive = metrics.firstTransactionDate 
     ? Math.floor((Date.now() - new Date(metrics.firstTransactionDate).getTime()) / (1000 * 60 * 60 * 24))
     : 0;
 
-  const currentEquity = metrics.currentNetWorth || 0;
-  const totalVolume = metrics.totalTradeVolume || 0;
-  const biggestWin = metrics.biggestWin ? metrics.biggestWin.profitUsd : 0;
-  
   // Formatters
-  const fmtUSD = (n: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(n);
-  const fmtNum = (n: number) => new Intl.NumberFormat('en-US').format(n);
+  const fmtUSD = (n: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', notation: "compact" }).format(n);
 
-  // --- REUSABLE SPACE WINDOW COMPONENT ---
-  const SpaceWindow = ({ children, tag }: { children: React.ReactNode, tag?: string }) => (
-    <div style={{
-      width: "100%",
-      height: "100%",
-      maxWidth: "400px",
-      maxHeight: "750px", // Limit height to keep aspect ratio on tall screens
-      aspectRatio: "9/18",
-      background: "#000",
-      backgroundImage: "radial-gradient(circle at 50% 100%, #1e1b4b 0%, #000 60%)",
-      borderRadius: "45px",
-      border: "6px solid #2d2d2d",
-      boxShadow: "inset 0 0 60px rgba(0,0,0,0.9), 0 0 0 2px #000",
-      position: "relative",
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "center",
-      justifyContent: "center", // Center content vertically
-      padding: "20px",
-      overflow: "hidden",
-      boxSizing: "border-box"
-    }}>
-      {/* Star Field Background */}
-      <div style={{ 
-        position: 'absolute', inset: 0, opacity: 0.6, 
-        backgroundImage: `radial-gradient(rgba(255,255,255,0.8) 1px, transparent 1px)`, 
-        backgroundSize: '40px 40px',
-        zIndex: 0
-      }} />
+  const handleMint = async () => {
+    if (!address) return;
+    setIsLoading(true);
+    setError(null);
+    try {
+      const node = cardRef.current;
+      if (!node) throw new Error("Card not found");
+      
+      const blob = await toBlob(node, { cacheBust: true, pixelRatio: 2, backgroundColor: "#000" });
 
-      {/* Optional Tag at Top */}
-      {tag && (
-        <div style={{
-          position: "absolute",
-          top: "80px",
-          background: "rgba(255, 255, 255, 0.1)",
-          padding: "8px 16px",
-          borderRadius: "20px",
-          fontSize: "0.8rem",
-          color: "#fbbf24", // Gold text
-          backdropFilter: "blur(4px)",
-          zIndex: 2
-        }}>
-          {tag}
-        </div>
-      )}
+      if (!blob) throw new Error("Failed to generate image blob");
 
-      {/* Content Container */}
-      <div style={{ zIndex: 2, width: "100%", textAlign: "center" }}>
-        {children}
-      </div>
+      const imageHash = await uploadBlobToIPFS(blob, "summary-card.png");
+      const imageUrl = getIPFSUrl(imageHash);
 
-      {/* Bottom Planet Effect */}
-      <div style={{
-        position: "absolute",
-        bottom: "-100px",
-        left: "50%",
-        transform: "translateX(-50%)",
-        width: "300px",
-        height: "300px",
-        background: "radial-gradient(circle at 50% 0%, #3b82f6 0%, transparent 70%)",
-        opacity: 0.3,
-        borderRadius: "50%",
-        filter: "blur(40px)",
-        zIndex: 1
-      }} />
-    </div>
-  );
-
-  const slides = [
-    // --- SLIDE 1: INTRO ---
-    {
-      id: "intro",
-      content: (
-        <SpaceWindow>
-          <div className="animate-fade-in">
-            <h1 style={{ fontSize: "2rem", fontWeight: "bold", marginBottom: "20px" }}>Warplet</h1>
-            <div style={{ fontSize: "1.2rem", marginBottom: "10px" }}>Hey there!</div>
-            <div style={{ fontSize: "1.5rem", fontWeight: "bold", lineHeight: 1.4 }}>
-              Ready to dive into<br />your 2025 Trading Recap?
-            </div>
-            <div style={{ fontSize: "4rem", marginTop: "40px" }}>👨‍🚀</div>
-          </div>
-        </SpaceWindow>
-      )
-    },
-    
-    // --- SLIDE 2: TENURE ---
-    {
-      id: "tenure",
-      content: (
-        <SpaceWindow tag="Growing With Us">
-          <div className="animate-slide-up">
-            <div style={{ fontSize: "1.1rem", marginBottom: "20px" }}>You've been active for</div>
-            
-            <div style={{ fontSize: "4rem", fontWeight: "900", lineHeight: 1 }}>
-              {daysActive}
-            </div>
-            <div style={{ fontSize: "1.2rem", marginBottom: "40px", opacity: 0.8 }}>day(s)</div>
-
-            <div style={{ fontSize: "1rem", lineHeight: 1.6, maxWidth: "280px", margin: "0 auto", opacity: 0.9 }}>
-              Navigating the markets through the volatility of 2025.
-            </div>
-          </div>
-        </SpaceWindow>
-      )
-    },
-
-    // --- SLIDE 3: PNL & EQUITY ---
-    {
-      id: "finance",
-      content: (
-        <SpaceWindow tag="Diamond Hands">
-          <div className="animate-slide-up" style={{ textAlign: "left", padding: "0 20px" }}>
-            
-            <div style={{ marginBottom: "40px" }}>
-              <div style={{ fontSize: "1rem", opacity: 0.7, marginBottom: "5px" }}>Current Account Equity:</div>
-              <div style={{ fontSize: "2.5rem", fontWeight: "bold" }}>
-                 {fmtUSD(currentEquity)}
-              </div>
-            </div>
-
-            <div style={{ marginBottom: "40px" }}>
-              <div style={{ fontSize: "1rem", opacity: 0.7, marginBottom: "5px" }}>Total PnL (Realized):</div>
-              <div style={{ fontSize: "2.5rem", fontWeight: "bold", color: metrics.totalProfitLoss >= 0 ? "#4ade80" : "#ef4444" }}>
-                 {metrics.totalProfitLoss >= 0 ? "+" : ""}{fmtUSD(metrics.totalProfitLoss)}
-              </div>
-            </div>
-
-          </div>
-        </SpaceWindow>
-      )
-    },
-
-    // --- SLIDE 4: VOLUME ---
-    {
-      id: "volume",
-      content: (
-        <SpaceWindow tag="2025 Milestones">
-          <div className="animate-slide-up" style={{ textAlign: "left", padding: "0 20px" }}>
-             <div style={{ fontSize: "1.2rem", marginBottom: "10px" }}>In 2025, you completed</div>
-             <div style={{ fontSize: "3rem", fontWeight: "bold", color: "#fbbf24" }}>
-                {metrics.totalTrades} <span style={{ fontSize: "1.5rem", color: "white" }}>trades,</span>
-             </div>
-             
-             <div style={{ fontSize: "1.2rem", marginTop: "10px" }}>totalling</div>
-             <div style={{ fontSize: "2.5rem", fontWeight: "bold" }}>{fmtUSD(totalVolume)}</div>
-             <div style={{ fontSize: "1rem", opacity: 0.6, marginBottom: "40px" }}>in volume.</div>
-
-             <div style={{ fontSize: "1rem", opacity: 0.8 }}>
-                Your best single trade profit hit <br/>
-                <span style={{ fontWeight: "bold", color: "#4ade80", fontSize: "1.2rem" }}>{fmtUSD(biggestWin)}</span>
-             </div>
-          </div>
-        </SpaceWindow>
-      )
-    },
-
-    // --- SLIDE 5: REVEAL / MINT ---
-    {
-      id: "reveal",
-      content: (
-        <div style={{ 
-          width: "100%", height: "100%", 
-          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-          padding: "20px"
-        }}>
-           <h2 style={{ marginBottom: 15, textTransform: 'uppercase', letterSpacing: '2px', fontSize: '0.9rem', opacity: 0.7 }}>
-            Your 2025 Card
-          </h2>
-          {/* Render the updated Summary Card for Minting */}
-          <SummaryWarpCard 
-            displayName={displayName} 
-            userImage={userImage}
-            metrics={metrics} 
-            theme={theme} 
-          />
-        </div>
-      )
-    }
-  ];
-
-  // --- TIMER LOGIC ---
-  useEffect(() => {
-    if (slideIndex === slides.length - 1) return; // Stop at end
-    if (isPaused) return;
-
-    const timer = setInterval(() => {
-      setProgress((old) => {
-        if (old >= 100) {
-          setSlideIndex((prev) => Math.min(prev + 1, slides.length - 1));
-          return 0;
-        }
-        return old + 1.2; // Speed
+      const metadataHash = await uploadToIPFS({
+        username: displayName,
+        totalProfitLoss: pnl,
+        winRate: metrics.winRate,
+        netWorth: netWorth,
+        imageUrl: imageUrl,
+        timestamp: Date.now(),
       });
-    }, 100);
 
-    return () => clearInterval(timer);
-  }, [slideIndex, isPaused]);
-
-  useEffect(() => {
-    setProgress(0);
-  }, [slideIndex]);
-
-  const handleTap = (e: any) => {
-    // Prevent tap if clicking a button (like Mint)
-    if (e.target.tagName === 'BUTTON') return;
-
-    const width = window.innerWidth;
-    const x = e.clientX;
-    if (x < width / 3) {
-      setSlideIndex((p) => Math.max(0, p - 1));
-    } else {
-      setSlideIndex((p) => Math.min(slides.length - 1, p + 1));
+      const txHash = await writeContractAsync({
+        address: MintContract.address as `0x${string}`,
+        abi: MintContract.abi,
+        functionName: "mintWithETH",
+        args: [
+          displayName, 
+          BigInt(Math.floor(pnl * 100)), 
+          BigInt(Math.floor(metrics.winRate * 100)), 
+          BigInt(Math.floor(netWorth * 100)), 
+          `ipfs://${metadataHash}`
+        ],
+        value: parseEther("0.0003"),
+      });
+      setSuccessHash(txHash);
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || "Mint failed");
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
-    <div 
-      onClick={handleTap}
-      onPointerDown={() => setIsPaused(true)}
-      onPointerUp={() => setIsPaused(false)}
-      style={{
-        position: "fixed", top: 0, left: 0, right: 0, bottom: "80px", // Leave room for bottom nav
-        background: "#000",
-        color: "white",
-        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-        fontFamily: "Inter, system-ui, sans-serif"
-      }}
-    >
-      <style>{`
-        .animate-fade-in { animation: fadeIn 0.8s ease-out; }
-        .animate-slide-up { animation: slideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1); }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes slideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
-      `}</style>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
+      
+      {/* --- THE SPACE PORTHOLE CARD --- */}
+      <div
+        ref={cardRef}
+        style={{
+          width: "100%",
+          maxWidth: "340px",
+          aspectRatio: "9/16",
+          background: "#050505",
+          backgroundImage: "radial-gradient(circle at 50% 0%, #1a1a2e 0%, #000 70%)",
+          borderRadius: "40px",
+          border: "4px solid #333",
+          padding: "24px",
+          position: "relative",
+          color: "white",
+          display: "flex",
+          flexDirection: "column",
+          gap: "15px",
+          boxShadow: "inset 0 0 40px rgba(0,0,0,0.8), 0 20px 50px rgba(0,0,0,0.5)",
+          overflow: "hidden",
+          fontFamily: "Inter, system-ui, sans-serif"
+        }}
+      >
+        {/* Stars Background Effect */}
+        <div style={{ position: 'absolute', inset: 0, opacity: 0.5, backgroundImage: `radial-gradient(white 1px, transparent 1px)`, backgroundSize: '30px 30px' }} />
 
-      {/* Progress Bars (Top) */}
-      <div style={{ position: "absolute", top: 15, left: 15, right: 15, display: "flex", gap: 6, zIndex: 10 }}>
-        {slides.map((_, i) => (
-          <div key={i} style={{ flex: 1, height: 3, background: "rgba(255,255,255,0.2)", borderRadius: 2, overflow: "hidden" }}>
-            <div style={{
-              height: "100%", background: "white",
-              width: i < slideIndex ? "100%" : i === slideIndex ? `${progress}%` : "0%",
-              transition: "width 0.1s linear"
-            }} />
+        {/* HEADER: Identity */}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", zIndex: 2, marginTop: "10px" }}>
+          <img src={userImage} style={{ width: 70, height: 70, borderRadius: "50%", border: "2px solid #fbbf24", boxShadow: "0 0 15px rgba(251, 191, 36, 0.3)" }} />
+          <div style={{ fontSize: "1.2rem", fontWeight: "800", marginTop: "10px" }}>{displayName}</div>
+          <div style={{ 
+            fontSize: "0.7rem", 
+            background: "rgba(255,255,255,0.1)", 
+            padding: "4px 12px", 
+            borderRadius: "20px",
+            marginTop: "5px",
+            color: "#fbbf24"
+          }}>
+            2025 TRADING RECAP
           </div>
-        ))}
+        </div>
+
+        {/* STATS LIST */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginTop: "20px", zIndex: 2 }}>
+          
+          {/* Row 1: Net Worth */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: "8px" }}>
+            <div style={{ fontSize: "0.8rem", opacity: 0.6 }}>Current Equity</div>
+            <div style={{ fontSize: "1.4rem", fontWeight: "bold" }}>{fmtUSD(netWorth)}</div>
+          </div>
+
+          {/* Row 2: PnL */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: "8px" }}>
+            <div style={{ fontSize: "0.8rem", opacity: 0.6 }}>Total PnL</div>
+            <div style={{ fontSize: "1.2rem", fontWeight: "bold", color: pnl >= 0 ? "#4ade80" : "#ef4444" }}>
+              {pnl >= 0 ? "+" : ""}{fmtUSD(pnl)}
+            </div>
+          </div>
+
+          {/* Row 3: Volume */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: "8px" }}>
+            <div style={{ fontSize: "0.8rem", opacity: 0.6 }}>Trading Volume</div>
+            <div style={{ fontSize: "1.2rem", fontWeight: "bold" }}>{fmtUSD(vol)}</div>
+          </div>
+
+           {/* Row 4: Stats Grid */}
+           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginTop: "5px" }}>
+             <div style={{ background: "rgba(255,255,255,0.05)", padding: "10px", borderRadius: "12px", textAlign: "center" }}>
+                <div style={{ fontSize: "1.2rem", fontWeight: "bold", color: "#fbbf24" }}>{daysActive}</div>
+                <div style={{ fontSize: "0.6rem", opacity: 0.6 }}>DAYS ACTIVE</div>
+             </div>
+             <div style={{ background: "rgba(255,255,255,0.05)", padding: "10px", borderRadius: "12px", textAlign: "center" }}>
+                <div style={{ fontSize: "1.2rem", fontWeight: "bold", color: "#fbbf24" }}>{tradeCount}</div>
+                <div style={{ fontSize: "0.6rem", opacity: 0.6 }}>TOTAL TRADES</div>
+             </div>
+           </div>
+        </div>
+
+        {/* FOOTER: ARCHETYPE */}
+        <div style={{ 
+          marginTop: "auto", 
+          textAlign: "center",
+          zIndex: 2,
+          padding: "15px",
+          background: "linear-gradient(180deg, rgba(251, 191, 36, 0.1) 0%, rgba(0,0,0,0) 100%)",
+          borderRadius: "20px 20px 0 0",
+          borderTop: "1px solid rgba(251, 191, 36, 0.3)"
+        }}>
+          <div style={{ fontSize: "0.7rem", opacity: 0.7, textTransform: "uppercase" }}>Trader Archetype</div>
+          <div style={{ fontSize: "1.2rem", fontWeight: "900", color: "#fbbf24", textTransform: "uppercase", letterSpacing: "1px", marginTop: "4px" }}>
+            {archetype}
+          </div>
+        </div>
       </div>
 
-      {/* Main Content Area */}
-      {slides[slideIndex].content}
+      {/* --- CONTROLS --- */}
+      <div style={{ marginTop: '20px', width: '100%', maxWidth: '340px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        {error && <div style={{ background: '#fee2e2', color: '#dc2626', padding: '10px', borderRadius: '10px', fontSize: '0.9rem', textAlign: 'center' }}>{error}</div>}
+        {successHash && <div style={{ background: '#dcfce7', color: '#166534', padding: '10px', borderRadius: '10px', fontSize: '0.9rem', textAlign: 'center' }}>🎉 Minted!</div>}
 
-      {/* Tap hint only on first slide */}
-      {slideIndex === 0 && (
-        <div style={{ position: "absolute", bottom: 20, opacity: 0.5, fontSize: "0.8rem", animation: "pulse 2s infinite" }}>
-          Tap to start
-        </div>
-      )}
+        <button
+          onClick={handleMint}
+          disabled={isLoading || !address}
+          style={{
+            width: '100%',
+            background: "#fbbf24",
+            color: "black",
+            border: 'none',
+            padding: '16px',
+            borderRadius: '30px',
+            fontWeight: 'bold',
+            fontSize: '1.1rem',
+            cursor: isLoading ? 'not-allowed' : 'pointer',
+            opacity: isLoading ? 0.7 : 1,
+            boxShadow: `0 4px 20px rgba(251, 191, 36, 0.4)`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
+          }}
+        >
+          {isLoading ? "Minting..." : "Mint Recap (0.0003 ETH)"}
+        </button>
+      </div>
     </div>
   );
 }
