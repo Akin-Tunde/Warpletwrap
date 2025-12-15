@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import type { WarpletMetrics } from "../hooks/useWarpletData";
-import DeFiWrappedCard from "./DeFiWrappedCard";
 import SummaryWarpCard from "./SummaryWarpCard";
 
 interface StoryProps {
@@ -10,184 +9,268 @@ interface StoryProps {
   userImage: string;
 }
 
-export default function WrappedStory({ displayName, metrics, theme, userImage }: StoryProps) {
+export default function WrappedStory({ displayName, metrics, userImage, theme }: StoryProps) {
   const [slideIndex, setSlideIndex] = useState(0);
   const [progress, setProgress] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
 
-  const social = metrics.social || { 
-    totalCasts: 0, breakdown: { casts: 0, replies: 0, recasts: 0 }, 
-    topFriends: [], topChannels: [], likesReceived: 0, percentile: 50 
-  };
+  // --- DATA PREP (Wallet Only) ---
+  const daysActive = metrics.firstTransactionDate 
+    ? Math.floor((Date.now() - new Date(metrics.firstTransactionDate).getTime()) / (1000 * 60 * 60 * 24))
+    : 0;
+
+  const currentEquity = metrics.currentNetWorth || 0;
+  const totalVolume = metrics.totalTradeVolume || 0;
+  const biggestWin = metrics.biggestWin ? metrics.biggestWin.profitUsd : 0;
+  
+  // Formatters
+  const fmtUSD = (n: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(n);
+
+  // --- DESIGN COMPONENTS ---
+
+  // The 3D Floating Icons seen in the screenshot (%, Coins, Logo)
+  const FloatingIcons = () => (
+    <div style={{ position: 'absolute', bottom: '60px', left: 0, right: 0, height: '100px', pointerEvents: 'none', zIndex: 5 }}>
+       {/* Center Icon */}
+       <div className="float-slow" style={{ 
+         position: 'absolute', left: '50%', bottom: '10px', transform: 'translateX(-50%)',
+         fontSize: '3rem', filter: 'drop-shadow(0 10px 10px rgba(0,0,0,0.5))' 
+       }}>
+         💎
+       </div>
+       {/* Left Icon */}
+       <div className="float-medium" style={{ 
+         position: 'absolute', left: '20%', bottom: '40px',
+         fontSize: '1.5rem', opacity: 0.7, filter: 'blur(1px)' 
+       }}>
+         💰
+       </div>
+       {/* Right Icon */}
+       <div className="float-fast" style={{ 
+         position: 'absolute', right: '20%', bottom: '30px',
+         fontSize: '1.8rem', opacity: 0.8 
+       }}>
+         🚀
+       </div>
+    </div>
+  );
+
+  // The "Space Porthole" Container
+  const SpaceWindow = ({ children, tag }: { children: React.ReactNode, tag?: string }) => (
+    <div style={{
+      width: "100%",
+      maxWidth: "380px", // Match phone width in screenshot
+      height: "75vh",    // Tall aspect ratio
+      maxHeight: "800px",
+      position: "relative",
+      borderRadius: "60px", // Extremely round corners like screenshot
+      // Metallic Bezel Gradient
+      background: "linear-gradient(145deg, #505050 0%, #2a2a2a 100%)",
+      padding: "8px", // Thickness of the outer bezel
+      boxShadow: "0 20px 50px rgba(0,0,0,0.8)", // External shadow
+      display: "flex",
+      flexDirection: "column",
+    }}>
+      {/* Inner Screen (The actual view) */}
+      <div style={{
+        flex: 1,
+        borderRadius: "54px", // Slightly less than outer
+        background: "#000",
+        backgroundImage: "linear-gradient(to bottom, #050510 0%, #0a0a25 100%)",
+        position: "relative",
+        overflow: "hidden",
+        boxShadow: "inset 0 0 40px rgba(0,0,0,0.9), inset 0 0 10px rgba(0,0,0,1)", // Inner depth
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center"
+      }}>
+        
+        {/* Star Field */}
+        <div style={{ 
+          position: 'absolute', inset: 0, opacity: 0.5, 
+          backgroundImage: `radial-gradient(white 1px, transparent 1px)`, 
+          backgroundSize: '50px 50px',
+          zIndex: 1
+        }} />
+
+        {/* Planet Horizon Effect (Bottom Glow) */}
+        <div style={{
+          position: "absolute",
+          bottom: "-150px",
+          left: "-50%",
+          right: "-50%",
+          height: "300px",
+          background: "radial-gradient(50% 50% at 50% 50%, #4f46e5 0%, transparent 100%)", // Blue/Earth glow
+          opacity: 0.6,
+          filter: "blur(40px)",
+          zIndex: 2,
+          borderRadius: "50%"
+        }} />
+
+        {/* Planet Surface (Physical semi-circle at bottom) */}
+        <div style={{
+          position: "absolute",
+          bottom: "-80px",
+          width: "140%",
+          left: "-20%",
+          height: "160px",
+          background: "linear-gradient(to bottom, #1e1b4b, #000)",
+          borderRadius: "50% 50% 0 0",
+          boxShadow: "0 -10px 40px rgba(59, 130, 246, 0.4)", // Rim light
+          zIndex: 3
+        }} />
+
+        {/* Floating 3D Elements */}
+        <FloatingIcons />
+
+        {/* Pill Tag (Top Left) */}
+        {tag && (
+          <div style={{
+            position: "absolute",
+            top: "40px",
+            left: "30px",
+            background: "rgba(255, 255, 255, 0.15)",
+            padding: "6px 16px",
+            borderRadius: "20px",
+            fontSize: "0.8rem",
+            color: "#e5e7eb",
+            backdropFilter: "blur(10px)",
+            border: "1px solid rgba(255,255,255,0.1)",
+            zIndex: 10
+          }}>
+            {tag}
+          </div>
+        )}
+
+        {/* Main Content */}
+        <div style={{ 
+          zIndex: 10, 
+          width: "100%", 
+          padding: "0 30px",
+          textAlign: "left", // Default alignment based on screenshots
+          color: "white"
+        }}>
+          {children}
+        </div>
+
+      </div>
+    </div>
+  );
 
   const slides = [
     // --- SLIDE 1: INTRO ---
     {
       id: "intro",
-      bg: "linear-gradient(135deg, #4c1d95 0%, #2e1065 100%)", // Deep Purple
       content: (
-        <div className="animate-pop">
-          <img src={userImage} style={{ width: 120, height: 120, borderRadius: "50%", border: "4px solid #facc15", boxShadow: "0 0 20px rgba(250, 204, 21, 0.5)" }} />
-          <h1 style={{ fontSize: "2.5rem", marginTop: 20, marginBottom: 10 }}>{displayName}</h1>
-          <div style={{ fontSize: "1.2rem", opacity: 0.8 }}>2025 On-Chain Wrapped</div>
-          <div style={{ fontSize: "4rem", marginTop: 40 }}>🔮</div>
-        </div>
+        <SpaceWindow>
+          <div className="animate-fade-in" style={{ textAlign: "center", marginTop: "-40px" }}>
+            <div style={{ fontSize: "1.5rem", fontWeight: "bold", marginBottom: "10px" }}>WARPLET</div>
+            <div style={{ fontSize: "1.2rem", fontWeight: "normal", opacity: 0.9 }}>
+              Hey there!
+            </div>
+            <div style={{ fontSize: "1.8rem", fontWeight: "bold", lineHeight: 1.3, marginTop: "10px" }}>
+              Ready to dive into<br />your 2025 recap?
+            </div>
+            <div style={{ marginTop: "40px" }}>
+              <img src={userImage} style={{ width: 80, height: 80, borderRadius: "50%", border: "3px solid white", boxShadow: "0 0 20px rgba(255,255,255,0.2)" }} />
+            </div>
+          </div>
+        </SpaceWindow>
       )
     },
     
-    // --- SLIDE 2: THE YAPPER (Activity) ---
+    // --- SLIDE 2: TENURE ---
     {
-      id: "activity",
-      bg: "#be185d", // Pink
+      id: "tenure",
       content: (
-        <div className="animate-slide-up" style={{ width: "100%" }}>
-          <h2 style={{ textTransform: "uppercase", letterSpacing: 2, opacity: 0.8 }}>The Yapper Stats</h2>
-          
-          <div style={{ margin: "40px 0" }}>
-            <div style={{ fontSize: "5rem", fontWeight: "900", lineHeight: 1 }}>{social.likesReceived}</div>
-            <div style={{ fontSize: "1.5rem" }}>Likes Received</div>
-          </div>
-
-          <div style={{ display: "flex", gap: 10, justifyContent: "center", marginTop: 30 }}>
-            <div style={{ background: "rgba(0,0,0,0.2)", padding: "15px 25px", borderRadius: 15 }}>
-              <div style={{ fontSize: "2rem", fontWeight: "bold" }}>{social.breakdown.casts}</div>
-              <div style={{ fontSize: "0.7rem", opacity: 0.8 }}>CASTS</div>
+        <SpaceWindow tag="Growing With Us">
+          <div className="animate-slide-up">
+            <div style={{ fontSize: "1.1rem", marginBottom: "20px" }}>You've been trading for</div>
+            
+            <div style={{ fontSize: "4.5rem", fontWeight: "400", lineHeight: 1, letterSpacing: "-2px" }}>
+              {daysActive} <span style={{ fontSize: "1.5rem" }}>day(s),</span>
             </div>
-            <div style={{ background: "rgba(0,0,0,0.2)", padding: "15px 25px", borderRadius: 15 }}>
-              <div style={{ fontSize: "2rem", fontWeight: "bold" }}>{social.breakdown.replies}</div>
-              <div style={{ fontSize: "0.7rem", opacity: 0.8 }}>REPLIES</div>
+            
+            <div style={{ fontSize: "1.1rem", marginTop: "30px", lineHeight: 1.5 }}>
+              And Warplet has just turned<br/>one year old!
+            </div>
+
+            <div style={{ fontSize: "0.9rem", marginTop: "30px", opacity: 0.7, lineHeight: 1.5 }}>
+              With over 150k registered users, we've grown into one of the leading analytics platforms.
             </div>
           </div>
-
-          <div style={{ marginTop: 40, background: "white", color: "#be185d", padding: "10px 20px", borderRadius: 20, display: "inline-block", fontWeight: "bold" }}>
-            Top {social.percentile}% Active User 🏆
-          </div>
-        </div>
+        </SpaceWindow>
       )
     },
 
-    // --- SLIDE 3: THE SQUAD (Engagement) ---
-    {
-      id: "squad",
-      bg: "#059669", // Emerald
-      content: (
-        <div className="animate-slide-up" style={{ width: "100%" }}>
-          <h2>Your Squad</h2>
-          <p style={{ opacity: 0.8, marginBottom: 30 }}>You couldn't stop talking to them.</p>
-          
-          <div style={{ display: "flex", flexDirection: "column", gap: 20, alignItems: "center" }}>
-            {social.topFriends.map((friend, i) => (
-              <div key={friend.fid} style={{ 
-                display: "flex", alignItems: "center", gap: 15, 
-                background: "rgba(0,0,0,0.2)", padding: 15, borderRadius: 50, 
-                width: "90%", maxWidth: 300,
-                transform: `scale(${1 - (i * 0.05)})` // Slight size step down
-              }}>
-                <div style={{ fontWeight: "bold", opacity: 0.5, width: 20 }}>#{i + 1}</div>
-                <img src={friend.pfp} style={{ width: 50, height: 50, borderRadius: "50%" }} />
-                <div style={{ textAlign: "left" }}>
-                  <div style={{ fontWeight: "bold" }}>{friend.username}</div>
-                  <div style={{ fontSize: "0.8rem", opacity: 0.7 }}>Bestie</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )
-    },
-
-    // --- SLIDE 4: THE HABITAT (Channels) ---
-    {
-      id: "channels",
-      bg: "#2563eb", // Blue
-      content: (
-        <div className="animate-slide-up" style={{ width: "100%" }}>
-          <h2>Your Habitats</h2>
-          <p style={{ marginBottom: 40 }}>Where you touched grass (digitally).</p>
-          
-          <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 20 }}>
-            {social.topChannels.map((c, i) => (
-              <div key={c.name} style={{ 
-                background: "white", color: "#2563eb", 
-                padding: 20, borderRadius: 20, 
-                display: "flex", flexDirection: "column", alignItems: "center",
-                width: i === 0 ? "160px" : "120px", // First one is bigger
-                boxShadow: "0 10px 20px rgba(0,0,0,0.2)"
-              }}>
-                <img src={c.imageUrl} style={{ width: i === 0 ? 60 : 40, height: i === 0 ? 60 : 40, borderRadius: 10, marginBottom: 10 }} />
-                <div style={{ fontWeight: "bold", fontSize: i === 0 ? "1.2rem" : "1rem" }}>/{c.name}</div>
-                <div style={{ fontSize: "0.8rem", opacity: 0.6 }}>{c.count} casts</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )
-    },
-
-    // --- SLIDE 5: THE BAG (Wallet) ---
+    // --- SLIDE 3: PNL & EQUITY ---
     {
       id: "finance",
-      bg: "#111", 
       content: (
-        <div className="animate-slide-up">
-          <h2 style={{ color: metrics.totalProfitLoss >= 0 ? "#4ade80" : "#ef4444" }}>
-            Wallet Check
-          </h2>
-          
-          <div style={{ margin: "40px 0" }}>
-            <div style={{ fontSize: "1rem", opacity: 0.7 }}>NET WORTH</div>
-            <div style={{ fontSize: "3.5rem", fontWeight: "900" }}>
-               ${(metrics.currentNetWorth / 1000).toFixed(1)}k
+        <SpaceWindow tag="Diamond Hands">
+          <div className="animate-slide-up">
+            <div style={{ fontSize: "1.1rem", marginBottom: "10px" }}>Your peak account equity:</div>
+            <div style={{ fontSize: "2.8rem", fontWeight: "bold", marginBottom: "40px" }}>
+               {fmtUSD(currentEquity)}
             </div>
-          </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
-            <div style={{ background: "#222", padding: 20, borderRadius: 20, border: "1px solid #333" }}>
-              <div style={{ fontSize: "2rem" }}>💸</div>
-              <div style={{ fontSize: "0.8rem", opacity: 0.7, marginTop: 5 }}>GAS GUZZLED</div>
-              <div style={{ fontSize: "1.2rem", fontWeight: "bold" }}>{metrics.totalTrades * 2} txn</div>
-            </div>
-            <div style={{ background: "#222", padding: 20, borderRadius: 20, border: "1px solid #333" }}>
-              <div style={{ fontSize: "2rem" }}>🎯</div>
-              <div style={{ fontSize: "0.8rem", opacity: 0.7, marginTop: 5 }}>WIN RATE</div>
-              <div style={{ fontSize: "1.2rem", fontWeight: "bold" }}>{metrics.winRate.toFixed(0)}%</div>
+            <div style={{ fontSize: "1.1rem", marginBottom: "10px" }}>Your total PnL (Realized):</div>
+            <div style={{ fontSize: "2.8rem", fontWeight: "bold", color: metrics.totalProfitLoss >= 0 ? "#ffffff" : "#ffffff" }}>
+               {fmtUSD(metrics.totalProfitLoss)}
             </div>
           </div>
-        </div>
+        </SpaceWindow>
       )
     },
 
-    // --- SLIDE 6: THE REVEAL ---
+    // --- SLIDE 4: VOLUME ---
+    {
+      id: "volume",
+      content: (
+        <SpaceWindow tag="2025 Trading Milestones">
+          <div className="animate-slide-up">
+             <div style={{ fontSize: "1.2rem", marginBottom: "15px" }}>In 2025, you completed</div>
+             
+             <div style={{ marginBottom: "10px" }}>
+               <span style={{ fontSize: "3.5rem", fontWeight: "bold" }}>{metrics.totalTrades}</span>
+               <span style={{ fontSize: "1.5rem", marginLeft: "10px" }}>trades,</span>
+             </div>
+             
+             <div style={{ fontSize: "1.2rem", marginBottom: "5px" }}>totalling</div>
+             <div style={{ fontSize: "3rem", fontWeight: "bold" }}>{fmtUSD(totalVolume)}</div>
+             <div style={{ fontSize: "1rem", marginTop: "5px" }}>in volume.</div>
+
+             <div style={{ height: "1px", background: "rgba(255,255,255,0.2)", margin: "30px 0" }} />
+
+             <div style={{ fontSize: "1rem" }}>
+                Your highest single-trade profit hit <br/>
+                <span style={{ fontWeight: "bold", fontSize: "1.4rem" }}>{fmtUSD(biggestWin)}</span>
+             </div>
+          </div>
+        </SpaceWindow>
+      )
+    },
+
+    // --- SLIDE 5: REVEAL / MINT ---
     {
       id: "reveal",
-      bg: "#000",
       content: (
-        <div className="animate-in" style={{ width: "100%" }}>
-          <h2 style={{ marginBottom: 10, textTransform: 'uppercase', letterSpacing: '4px', fontSize: '0.9rem' }}>The Final Result</h2>
-          
-          {/* Reuse the Premium Metal Card */}
-          <DeFiWrappedCard displayName={displayName} metrics={metrics} theme={theme} />
-          
-        </div>
-      )
-    },
-  {
-      id: "reveal",
-      bg: "#000",
-      content: (
-        <div className="animate-in" style={{ width: "100%" }}>
-          <h2 style={{ marginBottom: 15, textTransform: 'uppercase', letterSpacing: '2px', fontSize: '0.8rem', opacity: 0.7 }}>
-            The Result
+        <div style={{ 
+          width: "100%", height: "100%", 
+          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+          padding: "20px"
+        }}>
+           <h2 style={{ marginBottom: 15, textTransform: 'uppercase', letterSpacing: '2px', fontSize: '0.9rem', opacity: 0.7 }}>
+            Your 2025 Card
           </h2>
-          
-          {/* RENDER THE NEW SUMMARY CARD */}
+          {/* Render the updated Summary Card for Minting */}
           <SummaryWarpCard 
             displayName={displayName} 
             userImage={userImage}
             metrics={metrics} 
             theme={theme} 
           />
-          
         </div>
       )
     }
@@ -195,7 +278,7 @@ export default function WrappedStory({ displayName, metrics, theme, userImage }:
 
   // --- TIMER LOGIC ---
   useEffect(() => {
-    if (slideIndex === slides.length - 1) return; 
+    if (slideIndex === slides.length - 1) return;
     if (isPaused) return;
 
     const timer = setInterval(() => {
@@ -204,19 +287,20 @@ export default function WrappedStory({ displayName, metrics, theme, userImage }:
           setSlideIndex((prev) => Math.min(prev + 1, slides.length - 1));
           return 0;
         }
-        return old + 1.5; // Speed
+        return old + 1.5;
       });
     }, 100);
 
     return () => clearInterval(timer);
   }, [slideIndex, isPaused]);
 
-  // Reset progress on slide change
   useEffect(() => {
     setProgress(0);
   }, [slideIndex]);
 
   const handleTap = (e: any) => {
+    if (e.target.tagName === 'BUTTON') return;
+
     const width = window.innerWidth;
     const x = e.clientX;
     if (x < width / 3) {
@@ -233,26 +317,32 @@ export default function WrappedStory({ displayName, metrics, theme, userImage }:
       onPointerUp={() => setIsPaused(false)}
       style={{
         position: "fixed", top: 0, left: 0, right: 0, bottom: "80px",
-        background: slides[slideIndex].bg,
+        background: "#000",
         color: "white",
         display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-        padding: "20px", textAlign: "center",
-        transition: "background 0.5s ease",
-        overflow: "hidden",
-        fontFamily: "system-ui, -apple-system, sans-serif"
+        fontFamily: "Inter, system-ui, sans-serif"
       }}
     >
       <style>{`
-        .animate-pop { animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
-        .animate-slide-up { animation: slideUp 0.6s ease-out; }
-        @keyframes popIn { from { opacity: 0; transform: scale(0.5); } to { opacity: 1; transform: scale(1); } }
-        @keyframes slideUp { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fade-in { animation: fadeIn 0.8s ease-out; }
+        .animate-slide-up { animation: slideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1); }
+        .float-slow { animation: float 6s ease-in-out infinite; }
+        .float-medium { animation: float 5s ease-in-out infinite; animation-delay: 1s; }
+        .float-fast { animation: float 4s ease-in-out infinite; animation-delay: 2s; }
+        
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes float { 
+          0% { transform: translateY(0px) rotate(0deg); }
+          50% { transform: translateY(-15px) rotate(5deg); }
+          100% { transform: translateY(0px) rotate(0deg); }
+        }
       `}</style>
 
-      {/* Progress Bars */}
-      <div style={{ position: "absolute", top: 10, left: 10, right: 10, display: "flex", gap: 5, zIndex: 10 }}>
+      {/* Progress Bars (Top) */}
+      <div style={{ position: "absolute", top: 15, left: 15, right: 15, display: "flex", gap: 6, zIndex: 10 }}>
         {slides.map((_, i) => (
-          <div key={i} style={{ flex: 1, height: 4, background: "rgba(255,255,255,0.3)", borderRadius: 2, overflow: "hidden" }}>
+          <div key={i} style={{ flex: 1, height: 3, background: "rgba(255,255,255,0.2)", borderRadius: 2, overflow: "hidden" }}>
             <div style={{
               height: "100%", background: "white",
               width: i < slideIndex ? "100%" : i === slideIndex ? `${progress}%` : "0%",
@@ -264,11 +354,6 @@ export default function WrappedStory({ displayName, metrics, theme, userImage }:
 
       {slides[slideIndex].content}
 
-      {slideIndex < slides.length - 1 && (
-        <div style={{ position: "absolute", bottom: 20, opacity: 0.5, fontSize: "0.7rem", animation: "pulse 2s infinite" }}>
-          Tap to advance • Hold to pause
-        </div>
-      )}
     </div>
   );
 }
