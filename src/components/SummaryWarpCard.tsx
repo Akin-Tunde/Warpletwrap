@@ -20,7 +20,7 @@ export default function SummaryWarpCard({ displayName, userImage, metrics, onMin
   
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [successHash, setSuccessHash] = useState<string | null>(null);
+  const [successHash] = useState<string | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
 
   // Data Extraction (Wallet Only)
