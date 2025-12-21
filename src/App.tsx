@@ -33,6 +33,10 @@ function App() {
   useEffect(() => {
     const init = async () => {
       const ctx = await sdk.context;
+
+    console.log("🚀 STEP 1: Farcaster SDK Loaded", ctx);
+    console.log("🆔 User FID:", ctx?.user?.fid);
+    
       setContext(ctx);
       sdk.actions.ready();
     };

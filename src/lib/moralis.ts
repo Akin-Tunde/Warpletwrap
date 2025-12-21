@@ -173,9 +173,12 @@ export async function getNetWorth(
     }
   );
 
+const data = await response.json();
+console.log("💰 STEP 4 COMPLETE: Net Worth Data Result", data);
+  
   if (!response.ok) {
     throw new Error(`Moralis API error: ${response.statusText}`);
   }
 
-  return response.json();
+  return data;
 }

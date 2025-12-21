@@ -330,6 +330,10 @@ export function useWarpletData(fid: number | null, chain: string = "base")  {
     userData?.users[0]?.verified_addresses?.primary?.eth_address ||
     userData?.users[0]?.custody_address;
 
+    if (walletAddress) {
+  console.log("🔗 STEP 3: Identified Wallet Address to track:", walletAddress);
+}
+
   // 2. Fetch Casts for Social Stats
   const { data: castsData, isLoading: isLoadingCasts } = useQuery({
     queryKey: ["neynar-casts", fid],

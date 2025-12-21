@@ -16,12 +16,15 @@ export async function getUserByFid(
       "x-api-key": NEYNAR_API_KEY || "",
     },
   });
+  
+  const data = await response.json();
+  console.log("✅ STEP 2 COMPLETE: User Data from Neynar", data);
 
   if (!response.ok) {
     throw new Error(`Neynar API error: ${response.statusText}`);
   }
 
-  return response.json();
+  return data;
 }
 
 
