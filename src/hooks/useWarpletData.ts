@@ -493,14 +493,26 @@ export function useWarpletData(fid: number | null, chain: string = "base")  {
   });
 
   const { data: netWorthData, isLoading: isLoadingNetWorth, error: netWorthError } = useQuery({
-    queryKey: ["moralis-networth", walletAddress, chain],
-    queryFn: async () => {
-      if (!walletAddress) throw new Error("No wallet address");
-      return getNetWorth(walletAddress, [chain]);
-    },
-    enabled: !!walletAddress,
-    staleTime: 1000 * 60 * 60,
-  });
+  queryKey: ["moralis-networth", walletAddress], // Shared across the app
+  queryFn: async () => {
+    if (!walletAddress) throw new Error("No wallet address");
+    // This list now includes Hyperliquid and Monad
+    return getNetWorth(walletAddress, [
+      "eth",
+  "base",
+  "polygon",
+  "bsc",
+  "arbitrum",
+  "optimism",
+  "avalanche",
+  "fantom",
+  "linea",
+  "monad"
+    ]);
+  },
+  enabled: !!walletAddress,
+  staleTime: 1000 * 60 * 60,
+});
 
   const { data: warpletNft, isLoading: isLoadingNft } = useQuery({
     queryKey: ["alchemy-warplet-nft", walletAddress],

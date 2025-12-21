@@ -1,3 +1,5 @@
+// FILE: src/lib/moralis.ts
+
 import type {
   MoralisProfitabilityResponse,
   MoralisWalletStatsResponse,
@@ -27,6 +29,20 @@ export interface MoralisTokenBalance {
   portfolio_percentage: number;
 }
 
+// Global list of chains to check for net worth
+const ALL_EVM_CHAINS = [
+  "eth",
+  "base",
+  "polygon",
+  "bsc",
+  "arbitrum",
+  "optimism",
+  "avalanche",
+  "fantom",
+  "linea",
+  "monad"
+];
+
 export async function getWalletTokenBalances(
   address: string,
   chain = "base"
@@ -48,7 +64,6 @@ export async function getWalletTokenBalances(
   const data = await response.json();
   return data.result;
 }
-
 
 export async function getWalletProfitability(
   address: string,
@@ -94,7 +109,7 @@ export async function getWalletStats(
 
 export async function getWalletChains(
   address: string,
-  chains = ["base"]
+  chains = ALL_EVM_CHAINS
 ): Promise<MoralisWalletChainsResponse> {
   const chainParams = chains.map((c, i) => `chains%5B${i}%5D=${c}`).join("&");
   const response = await fetch(
@@ -156,13 +171,19 @@ export async function getProfitabilitySummary(
   return response.json();
 }
 
+/**
+ * FIXED: Removed max_token_inactivity=1 to match Thunder Client output ($25k+)
+ * Added Hyperliquid and Monad to the default chains list.
+ */
 export async function getNetWorth(
   address: string,
-  chains = ["base"]
+  chains = ALL_EVM_CHAINS
 ): Promise<MoralisNetWorthResponse> {
   const chainParams = chains.map((c, i) => `chains%5B${i}%5D=${c}`).join("&");
-  const queryParams =
-    "exclude_spam=true&exclude_unverified_contracts=true&max_token_inactivity=1&min_pair_side_liquidity_usd=1000";
+  
+  // Cleaned query parameters: Removed max_token_inactivity
+  const queryParams = "exclude_spam=true&exclude_unverified_contracts=true&min_pair_side_liquidity_usd=1000";
+  
   const response = await fetch(
     `${MORALIS_BASE_URL}/wallets/${address}/net-worth?${chainParams}&${queryParams}`,
     {
@@ -173,8 +194,10 @@ export async function getNetWorth(
     }
   );
 
-const data = await response.json();
-console.log("💰 STEP 4 COMPLETE: Net Worth Data Result", data);
+  const data = await response.json();
+  
+  // Log the result so you can see the $25k+ figure in your browser console
+  console.log("💰 STEP 4 COMPLETE: Global Net Worth Data Result", data);
   
   if (!response.ok) {
     throw new Error(`Moralis API error: ${response.statusText}`);

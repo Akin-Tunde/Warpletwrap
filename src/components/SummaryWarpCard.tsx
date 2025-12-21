@@ -11,9 +11,10 @@ interface SummaryCardProps {
   userImage: string;
   metrics: WarpletMetrics;
   theme: any;
+  onMintStateChange?: (isMinting: boolean) => void; 
 }
 
-export default function SummaryWarpCard({ displayName, userImage, metrics }: SummaryCardProps) {
+export default function SummaryWarpCard({ displayName, userImage, metrics, onMintStateChange }: SummaryCardProps) {
   const { address } = useAccount();
   const { writeContractAsync } = useWriteContract();
   
@@ -37,49 +38,48 @@ export default function SummaryWarpCard({ displayName, userImage, metrics }: Sum
   // Formatters
   const fmtUSD = (n: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', notation: "compact" }).format(n);
 
-  const handleMint = async () => {
-    if (!address) return;
+ const handleMint = async () => {
+    if (!address || isLoading) return;
+    
     setIsLoading(true);
+    // 3. Call the prop to notify the Story component
+    onMintStateChange?.(true); 
     setError(null);
+
     try {
+      await new Promise(resolve => setTimeout(resolve, 250));
       const node = cardRef.current;
       if (!node) throw new Error("Card not found");
       
-      const blob = await toBlob(node, { cacheBust: true, pixelRatio: 2, backgroundColor: "#000" });
-
-      if (!blob) throw new Error("Failed to generate image blob");
+      const blob = await toBlob(node, { cacheBust: true, pixelRatio: 2 });
+      if (!blob) throw new Error("Failed to generate image");
 
       const imageHash = await uploadBlobToIPFS(blob, "summary-card.png");
       const imageUrl = getIPFSUrl(imageHash);
 
       const metadataHash = await uploadToIPFS({
         username: displayName,
-        totalProfitLoss: pnl,
+        totalProfitLoss: metrics.totalProfitLoss,
         winRate: metrics.winRate,
-        netWorth: netWorth,
+        netWorth: metrics.currentNetWorth,
         imageUrl: imageUrl,
         timestamp: Date.now(),
       });
 
-      const txHash = await writeContractAsync({
+      await writeContractAsync({
         address: MintContract.address as `0x${string}`,
         abi: MintContract.abi,
         functionName: "mintWithETH",
-        args: [
-          displayName, 
-          BigInt(Math.floor(pnl * 100)), 
-          BigInt(Math.floor(metrics.winRate * 100)), 
-          BigInt(Math.floor(netWorth * 100)), 
-          `ipfs://${metadataHash}`
-        ],
+        args: [displayName, BigInt(0), BigInt(0), BigInt(0), `ipfs://${metadataHash}`],
         value: parseEther("0.0003"),
       });
-      setSuccessHash(txHash);
+
     } catch (err: any) {
-      console.error(err);
       setError(err.message || "Mint failed");
     } finally {
       setIsLoading(false);
+      // 4. Notify the Story component that we are done
+      onMintStateChange?.(false); 
     }
   };
 
