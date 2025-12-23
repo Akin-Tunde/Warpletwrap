@@ -27,7 +27,7 @@ export default function WrappedStory({ displayName, metrics, userImage, theme }:
   const fmtUSD = (n: number) => new Intl.NumberFormat('en-US', { 
     style: 'currency', 
     currency: 'USD', 
-    maximumFractionDigits: 0 // Clean look for story slides
+    maximumFractionDigits: 0
   }).format(n);
 
   // --- TIMER LOGIC ---
@@ -197,19 +197,36 @@ export default function WrappedStory({ displayName, metrics, userImage, theme }:
       }}
     >
       <style>{`
-        .animate-fade-in { animation: fadeIn 0.8s ease-out; }
-        .animate-slide-up { animation: slideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1); }
-        .float-slow { animation: float 6s ease-in-out infinite; }
-        .float-medium { animation: float 5s ease-in-out infinite; animation-delay: 1s; }
-        .float-fast { animation: float 4s ease-in-out infinite; animation-delay: 2s; }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes slideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes float { 
-          0% { transform: translateY(0px) rotate(0deg); }
-          50% { transform: translateY(-15px) rotate(5deg); }
-          100% { transform: translateY(0px) rotate(0deg); }
-        }
-      `}</style>
+
+  
+
+  .float-stable {
+    animation: floatStable ;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes slideUp {
+    from {
+      opacity: 0;
+      transform: translateY(16px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes floatStable {
+    0%   { transform: translateY(0); }
+    50%  { transform: translateY(-6px); }
+    100% { transform: translateY(0); }
+  }
+`}</style>
+
 
       <div style={{ position: "absolute", top: 15, left: 15, right: 15, display: "flex", gap: 6, zIndex: 10 }}>
         {slides.map((_, i) => (
